@@ -1,0 +1,635 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.4"
+  }
+  public: {
+    Tables: {
+      alertas: {
+        Row: {
+          created_at: string | null
+          id: string
+          lido: boolean | null
+          mensagem: string
+          registro_id: string
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          lido?: boolean | null
+          mensagem: string
+          registro_id: string
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          lido?: boolean | null
+          mensagem?: string
+          registro_id?: string
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alertas_registro_id_fkey"
+            columns: ["registro_id"]
+            isOneToOne: false
+            referencedRelation: "registros_ponto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alertas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      banco_horas: {
+        Row: {
+          created_at: string | null
+          data: string
+          expira_em: string
+          id: string
+          minutos: number
+          nota: string | null
+          registro_id: string | null
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data: string
+          expira_em: string
+          id?: string
+          minutos: number
+          nota?: string | null
+          registro_id?: string | null
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: string
+          expira_em?: string
+          id?: string
+          minutos?: number
+          nota?: string | null
+          registro_id?: string | null
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      compensacoes_banco_horas: {
+        Row: {
+          created_at: string | null
+          data: string
+          id: string
+          minutos: number
+          observacao: string | null
+          tipo: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data: string
+          id?: string
+          minutos: number
+          observacao?: string | null
+          tipo?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: string
+          id?: string
+          minutos?: number
+          observacao?: string | null
+          tipo?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      feriados_locais: {
+        Row: {
+          created_at: string | null
+          data: string
+          id: string
+          nome: string
+          recorrente: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data: string
+          id?: string
+          nome: string
+          recorrente?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: string
+          id?: string
+          nome?: string
+          recorrente?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ferias: {
+        Row: {
+          created_at: string | null
+          data_fim: string
+          data_inicio: string
+          dias_direito: number | null
+          id: string
+          observacao: string | null
+          status: string | null
+          tipo: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_fim: string
+          data_inicio: string
+          dias_direito?: number | null
+          id?: string
+          observacao?: string | null
+          status?: string | null
+          tipo?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data_fim?: string
+          data_inicio?: string
+          dias_direito?: number | null
+          id?: string
+          observacao?: string | null
+          status?: string | null
+          tipo?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      marcacoes_ponto: {
+        Row: {
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          horario: string
+          id: string
+          origem: string | null
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          horario: string
+          id?: string
+          origem?: string | null
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
+          horario?: string
+          id?: string
+          origem?: string | null
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          aceite_termos: boolean
+          adiantamentos: number
+          alternancia_turno: string
+          auxilio_combustivel: number
+          banco_horas_saldo_inicial: number | null
+          banco_horas_saldo_inicial_data: string | null
+          bonificacoes: number
+          carga_horaria_diaria: number | null
+          created_at: string | null
+          data_admissao: string | null
+          data_vencimento_ferias: string | null
+          descontos_fixos: number
+          dia_fechamento_folha: number
+          dias_trabalhados_semana: number
+          empresa: string | null
+          escala_dias_folga: number | null
+          escala_dias_trabalho: number | null
+          escala_inicio: string | null
+          escala_tipo: string | null
+          historico_importado: boolean | null
+          historico_inicio: string | null
+          hora_extra_percentual: number | null
+          hora_extra_percentual_feriado: number | null
+          horario_entrada_padrao: string | null
+          horario_saida_padrao: string | null
+          id: string
+          intervalo_almoco: number
+          is_pro: boolean
+          limite_banco_horas: number | null
+          modo_trabalho: string
+          nome: string | null
+          onboarding_completo: boolean | null
+          outros_descontos_detalhados: number
+          plano: string | null
+          plano_payment_id: string | null
+          plano_saude: number
+          plano_vencimento: string | null
+          prazo_compensacao_dias: number
+          regra_conversao: string
+          salario_base: number | null
+          subscription_status: string
+          tipo_jornada: string
+          turno_a_fim: string | null
+          turno_a_inicio: string | null
+          turno_b_fim: string | null
+          turno_b_inicio: string | null
+          turno_c_fim: string | null
+          turno_c_inicio: string | null
+          vale_alimentacao: number
+        }
+        Insert: {
+          aceite_termos?: boolean
+          adiantamentos?: number
+          alternancia_turno?: string
+          auxilio_combustivel?: number
+          banco_horas_saldo_inicial?: number | null
+          banco_horas_saldo_inicial_data?: string | null
+          bonificacoes?: number
+          carga_horaria_diaria?: number | null
+          created_at?: string | null
+          data_admissao?: string | null
+          data_vencimento_ferias?: string | null
+          descontos_fixos?: number
+          dia_fechamento_folha?: number
+          dias_trabalhados_semana?: number
+          empresa?: string | null
+          escala_dias_folga?: number | null
+          escala_dias_trabalho?: number | null
+          escala_inicio?: string | null
+          escala_tipo?: string | null
+          historico_importado?: boolean | null
+          historico_inicio?: string | null
+          hora_extra_percentual?: number | null
+          hora_extra_percentual_feriado?: number | null
+          horario_entrada_padrao?: string | null
+          horario_saida_padrao?: string | null
+          id: string
+          intervalo_almoco?: number
+          is_pro?: boolean
+          limite_banco_horas?: number | null
+          modo_trabalho?: string
+          nome?: string | null
+          onboarding_completo?: boolean | null
+          outros_descontos_detalhados?: number
+          plano?: string | null
+          plano_payment_id?: string | null
+          plano_saude?: number
+          plano_vencimento?: string | null
+          prazo_compensacao_dias?: number
+          regra_conversao?: string
+          salario_base?: number | null
+          subscription_status?: string
+          tipo_jornada?: string
+          turno_a_fim?: string | null
+          turno_a_inicio?: string | null
+          turno_b_fim?: string | null
+          turno_b_inicio?: string | null
+          turno_c_fim?: string | null
+          turno_c_inicio?: string | null
+          vale_alimentacao?: number
+        }
+        Update: {
+          aceite_termos?: boolean
+          adiantamentos?: number
+          alternancia_turno?: string
+          auxilio_combustivel?: number
+          banco_horas_saldo_inicial?: number | null
+          banco_horas_saldo_inicial_data?: string | null
+          bonificacoes?: number
+          carga_horaria_diaria?: number | null
+          created_at?: string | null
+          data_admissao?: string | null
+          data_vencimento_ferias?: string | null
+          descontos_fixos?: number
+          dia_fechamento_folha?: number
+          dias_trabalhados_semana?: number
+          empresa?: string | null
+          escala_dias_folga?: number | null
+          escala_dias_trabalho?: number | null
+          escala_inicio?: string | null
+          escala_tipo?: string | null
+          historico_importado?: boolean | null
+          historico_inicio?: string | null
+          hora_extra_percentual?: number | null
+          hora_extra_percentual_feriado?: number | null
+          horario_entrada_padrao?: string | null
+          horario_saida_padrao?: string | null
+          id?: string
+          intervalo_almoco?: number
+          is_pro?: boolean
+          limite_banco_horas?: number | null
+          modo_trabalho?: string
+          nome?: string | null
+          onboarding_completo?: boolean | null
+          outros_descontos_detalhados?: number
+          plano?: string | null
+          plano_payment_id?: string | null
+          plano_saude?: number
+          plano_vencimento?: string | null
+          prazo_compensacao_dias?: number
+          regra_conversao?: string
+          salario_base?: number | null
+          subscription_status?: string
+          tipo_jornada?: string
+          turno_a_fim?: string | null
+          turno_a_inicio?: string | null
+          turno_b_fim?: string | null
+          turno_b_inicio?: string | null
+          turno_c_fim?: string | null
+          turno_c_inicio?: string | null
+          vale_alimentacao?: number
+        }
+        Relationships: []
+      }
+      registros_ponto: {
+        Row: {
+          anexo_url: string | null
+          atestado_periodo: string | null
+          created_at: string | null
+          data: string
+          deleted_at: string | null
+          editado_em: string | null
+          editado_manualmente: boolean
+          editado_por: string | null
+          entrada: string
+          id: string
+          intervalo_minutos: number | null
+          manha_atestado_url: string | null
+          manha_entrada: string | null
+          manha_estado: string | null
+          manha_saida: string | null
+          observacao: string | null
+          saida: string | null
+          tarde_atestado_url: string | null
+          tarde_entrada: string | null
+          tarde_estado: string | null
+          tarde_saida: string | null
+          user_id: string
+        }
+        Insert: {
+          anexo_url?: string | null
+          atestado_periodo?: string | null
+          created_at?: string | null
+          data: string
+          deleted_at?: string | null
+          editado_em?: string | null
+          editado_manualmente?: boolean
+          editado_por?: string | null
+          entrada: string
+          id?: string
+          intervalo_minutos?: number | null
+          manha_atestado_url?: string | null
+          manha_entrada?: string | null
+          manha_estado?: string | null
+          manha_saida?: string | null
+          observacao?: string | null
+          saida?: string | null
+          tarde_atestado_url?: string | null
+          tarde_entrada?: string | null
+          tarde_estado?: string | null
+          tarde_saida?: string | null
+          user_id: string
+        }
+        Update: {
+          anexo_url?: string | null
+          atestado_periodo?: string | null
+          created_at?: string | null
+          data?: string
+          deleted_at?: string | null
+          editado_em?: string | null
+          editado_manualmente?: boolean
+          editado_por?: string | null
+          entrada?: string
+          id?: string
+          intervalo_minutos?: number | null
+          manha_atestado_url?: string | null
+          manha_entrada?: string | null
+          manha_estado?: string | null
+          manha_saida?: string | null
+          observacao?: string | null
+          saida?: string | null
+          tarde_atestado_url?: string | null
+          tarde_entrada?: string | null
+          tarde_estado?: string | null
+          tarde_saida?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_ponto_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      registros_ponto_historico: {
+        Row: {
+          alterado_em: string | null
+          campo_alterado: string
+          id: string
+          registro_id: string
+          valor_anterior: string | null
+          valor_novo: string | null
+        }
+        Insert: {
+          alterado_em?: string | null
+          campo_alterado: string
+          id?: string
+          registro_id: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Update: {
+          alterado_em?: string | null
+          campo_alterado?: string
+          id?: string
+          registro_id?: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registros_ponto_historico_registro_id_fkey"
+            columns: ["registro_id"]
+            isOneToOne: false
+            referencedRelation: "registros_ponto"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      delete_my_account: { Args: never; Returns: undefined }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const
