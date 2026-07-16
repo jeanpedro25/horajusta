@@ -1,6 +1,6 @@
 import { Fragment, lazy, Suspense } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -53,9 +53,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; skipOnboardingCheck?
 
 const AuthRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session, profile, loading } = useAuth();
+  const location = useLocation();
+  const requestedRedirect = new URLSearchParams(location.search).get('redirect');
+  const redirect = requestedRedirect?.startsWith('/') && !requestedRedirect.startsWith('//')
+    ? requestedRedirect
+    : null;
   if (loading) return <FullScreenLoader />;
   if (session && (!profile || !(profile as any).aceite_termos)) return <Navigate to="/aceite-termos" replace />;
-  if (session && profile?.onboarding_completo) return <Navigate to="/app" replace />;
+  if (session && profile?.onboarding_completo) return <Navigate to={redirect || "/app"} replace />;
   if (session && !profile?.onboarding_completo) return <Navigate to="/onboarding" replace />;
   return <Fragment key={session?.user.id ?? 'guest'}>{children}</Fragment>;
 };

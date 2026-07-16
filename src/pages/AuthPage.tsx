@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable/index';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,12 @@ const AuthPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const requestedRedirect = new URLSearchParams(location.search).get('redirect');
+  const redirect = requestedRedirect?.startsWith('/') && !requestedRedirect.startsWith('//')
+    ? requestedRedirect
+    : null;
+  const isAdminLogin = redirect === '/admin';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +60,7 @@ const AuthPage: React.FC = () => {
         if (!profile || !profile.aceite_termos) {
           navigate('/aceite-termos');
         } else if (profile?.onboarding_completo) {
-          navigate('/app');
+          navigate(redirect || '/app');
         } else {
           navigate('/onboarding');
         }
@@ -72,7 +78,7 @@ const AuthPage: React.FC = () => {
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
-    const redirectTo = `${window.location.origin}/auth`;
+    const redirectTo = `${window.location.origin}/auth${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`;
     try {
       if (useSupabaseGoogleOAuth()) {
         const { error } = await supabase.auth.signInWithOAuth({
@@ -112,6 +118,11 @@ const AuthPage: React.FC = () => {
           </span>
         </div>
       </div>
+      {isAdminLogin && (
+        <div className="mb-4 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-accent-container">
+          Acesso administrativo
+        </div>
+      )}
 
       {/* Card */}
       <div className="bg-card rounded-2xl p-7 w-full max-w-[400px] shadow-2xl mt-4">

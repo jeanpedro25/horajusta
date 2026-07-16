@@ -18,7 +18,7 @@ export default function AdminRoute({ children }: { children: ReactNode }) {
   const admin = useAdmin();
 
   if (loading || (session && admin.isPending)) return <LoadingScreen />;
-  if (!session) return <Navigate to="/auth" replace />;
+  if (!session) return <Navigate to="/auth?redirect=%2Fadmin" replace />;
 
   if (admin.isError) {
     return (
