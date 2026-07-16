@@ -17,7 +17,7 @@ const PricingSection: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <section id="precos" className="py-24 bg-surface-low px-6">
+    <section id="precos" className="scroll-mt-20 bg-surface-low px-6 py-24">
       <div className="max-w-4xl mx-auto">
         <motion.div
           className="text-center mb-14"
@@ -53,7 +53,7 @@ const PricingSection: React.FC = () => {
             </ul>
             <Button
               variant="outline"
-              className="w-full h-13 rounded-xl font-bold text-primary border-primary/30 hover:bg-primary/5"
+              className="h-12 w-full rounded-xl border-primary/30 font-bold text-primary hover:bg-primary/5"
               onClick={() => navigate('/auth')}
             >
               Assinar Mensal
@@ -83,7 +83,7 @@ const PricingSection: React.FC = () => {
               ))}
             </ul>
             <Button
-              className="w-full h-13 bg-accent-container text-primary rounded-xl font-bold hover:bg-white transition-colors text-base"
+              className="h-12 w-full rounded-xl bg-accent-container text-base font-bold text-primary transition-colors hover:bg-white"
               onClick={() => navigate('/auth')}
             >
               Assinar Anual

@@ -1,13 +1,20 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+function corsHeaders(origin: string | null, appUrl: string) {
+  return {
+    "Access-Control-Allow-Origin": origin === appUrl ? origin : appUrl,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Vary": "Origin",
+  };
+}
 
 serve(async (req) => {
+  const baseUrl = Deno.env.get("APP_URL");
+  if (!baseUrl) return new Response("APP_URL not configured", { status: 503 });
+  const CORS = corsHeaders(req.headers.get("Origin"), baseUrl);
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (req.method !== "POST") return new Response("method not allowed", { status: 405, headers: CORS });
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
@@ -30,14 +37,12 @@ serve(async (req) => {
       });
     }
 
-    const { plano, user_email, user_nome } = await req.json();
+    const { plano } = await req.json();
     const user_id = user.id;
 
     const token = Deno.env.get("MP_ACCESS_TOKEN");
     if (!token) throw new Error("MP_ACCESS_TOKEN não configurado");
 
-    // URL base de retorno — configurável via env var ou fallback para produção
-    const baseUrl = Deno.env.get("APP_URL") || "https://horajusta.vercel.app";
     const webhookUrl = Deno.env.get("MP_WEBHOOK_URL") || `${supabaseUrl}/functions/v1/mp-webhook`;
 
     const PRICES: Record<string, number> = { pro: 9.90, anual: 89.90 };
@@ -58,8 +63,7 @@ serve(async (req) => {
         },
       ],
       payer: {
-        email: user_email ?? user.email ?? "",
-        name: user_nome || user_email || user.email || "Usuario",
+        email: user.email ?? "",
       },
       back_urls: {
         success: `${baseUrl}/planos?payment=success&plano=${plano}`,
@@ -69,6 +73,7 @@ serve(async (req) => {
       auto_return: "approved",
       notification_url: webhookUrl,
       external_reference: `${user_id}|${plano}|${Date.now()}`,
+      metadata: { user_id, plano },
       statement_descriptor: "HORA JUSTA",
     };
 
@@ -78,14 +83,17 @@ serve(async (req) => {
       body: JSON.stringify(preference),
     });
     const data = await mpRes.json();
-    if (!mpRes.ok) throw new Error(data?.message || JSON.stringify(data));
+    if (!mpRes.ok) {
+      console.error("Mercado Pago preference error", { status: mpRes.status, code: data?.error });
+      throw new Error("Não foi possível iniciar o pagamento");
+    }
 
     return new Response(JSON.stringify({ id: data.id, init_point: data.init_point }), {
       headers: { ...CORS, "Content-Type": "application/json" },
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return new Response(JSON.stringify({ error: message }), {
+    console.error("create-payment error", err instanceof Error ? err.message : "unknown error");
+    return new Response(JSON.stringify({ error: "Não foi possível iniciar o pagamento" }), {
       status: 500,
       headers: { ...CORS, "Content-Type": "application/json" },
     });

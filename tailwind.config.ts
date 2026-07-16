@@ -42,6 +42,8 @@ export default {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
         },
+        "accent-text": "hsl(var(--accent-text))",
+        "accent-on-primary": "hsl(var(--accent-on-primary))",
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
@@ -50,6 +52,8 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        "warning-text": "hsl(var(--warning-text))",
+        "warning-on-primary": "hsl(var(--warning-on-primary))",
         "surface-low": "hsl(var(--surface-low))",
         "surface-high": "hsl(var(--surface-high))",
         "accent-container": "hsl(var(--accent-container))",

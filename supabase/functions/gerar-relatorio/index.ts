@@ -1,15 +1,36 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+function corsHeaders(origin: string | null) {
+  const appUrl = Deno.env.get("APP_URL") || "https://horajusta.com";
+  return {
+    "Access-Control-Allow-Origin": origin === appUrl ? origin : appUrl,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Vary": "Origin",
+  };
+}
+
+function hasReportAccess(profile: Record<string, unknown>): boolean {
+  const expiresAt = profile.plano_vencimento ? new Date(String(profile.plano_vencimento)) : null;
+  const notExpired = !expiresAt || expiresAt > new Date();
+  const paid = (profile.plano === "pro" || profile.plano === "anual" || profile.is_pro === true || profile.subscription_status === "active") && notExpired;
+  const createdAt = profile.created_at ? new Date(String(profile.created_at)) : null;
+  const trial = createdAt && Date.now() - createdAt.getTime() < 7 * 24 * 60 * 60 * 1000;
+  return Boolean(paid || trial);
+}
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "").replace(/[&<>'"]/g, character => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
+  })[character] || character);
+}
 
 serve(async (req) => {
+  const cors = corsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: cors });
   }
+  if (req.method !== "POST") return new Response("Method not allowed", { status: 405, headers: cors });
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -24,6 +45,12 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const { month, year } = await req.json();
+    if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2020 || year > 2100) {
+      return new Response(JSON.stringify({ error: "Período inválido" }), {
+        status: 400,
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
     const endDate = month === 12
       ? `${year + 1}-01-01`
@@ -35,6 +62,12 @@ serve(async (req) => {
       .select("*")
       .eq("id", user.id)
       .single();
+    if (!profile || !hasReportAccess(profile as Record<string, unknown>)) {
+      return new Response(JSON.stringify({ error: "Recurso disponível para usuários PRO" }), {
+        status: 403,
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
 
     // Fetch marcacoes_ponto (the actual data source)
     const { data: marcacoes } = await supabase
@@ -184,7 +217,7 @@ serve(async (req) => {
 </head>
 <body>
   <h1>⚖️ Hora Justa — Relatório de Jornada</h1>
-  <p class="subtitle">${meses[month - 1]} ${year} · ${profile?.nome || 'Trabalhador'}</p>
+  <p class="subtitle">${meses[month - 1]} ${year} · ${escapeHtml(profile?.nome || 'Trabalhador')}</p>
 
   <div class="summary">
     <div class="summary-item">
@@ -264,12 +297,13 @@ serve(async (req) => {
         bancoHoras: bhSaldo,
       },
     }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...cors, "Content-Type": "application/json" },
     });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Erro ao gerar relatório";
+    return new Response(JSON.stringify({ error: message }), {
       status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...cors, "Content-Type": "application/json" },
     });
   }
 });

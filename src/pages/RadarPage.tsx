@@ -289,7 +289,7 @@ const RadarPage: React.FC = () => {
   const alertasBloqueados = !plano.podeUsarPro ? Math.max(0, alertas.length - 2) : 0;
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="app-with-bottom-nav min-h-screen bg-background">
       {/* Header especial */}
       <div className="sticky top-0 z-10 bg-gradient-to-r from-slate-900 to-slate-800 px-4 py-4 flex items-center gap-3">
         <button onClick={() => navigate('/app')} className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">

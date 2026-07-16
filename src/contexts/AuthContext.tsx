@@ -55,7 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { error: createError } = await supabase
       .from('profiles')
-      .upsert({ id: userId } as never, { onConflict: 'id' });
+      .insert({ id: userId });
 
     if (createError) {
       console.error('Erro ao criar perfil automaticamente', createError);

@@ -5,7 +5,7 @@ import { Shield, Lock, Eye, Trash2, Database } from 'lucide-react';
 
 const PrivacidadePage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="app-with-bottom-nav min-h-screen bg-background">
       <AppHeader title="Privacidade" subtitle="Seus dados, suas regras" />
       <div className="px-4 -mt-3 max-w-lg mx-auto space-y-4">
         <div className="bg-card rounded-xl border border-border p-5 space-y-5">

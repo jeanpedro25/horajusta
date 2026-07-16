@@ -62,7 +62,7 @@ const AlertaCard: React.FC<{ alerta: AlertaRadar; isPro: boolean; index: number 
             {cfg.icon}
             <p className="text-sm font-semibold">{alerta.titulo}</p>
           </div>
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{alerta.descricao}</p>
+          <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{alerta.narrativa}</p>
         </div>
       </div>
     );
@@ -93,7 +93,7 @@ const AlertaCard: React.FC<{ alerta: AlertaRadar; isPro: boolean; index: number 
 
       {expanded && (
         <div className={`px-4 pb-4 space-y-2.5 border-t ${cfg.border}`}>
-          <p className="text-xs text-foreground/80 leading-relaxed pt-3">{alerta.descricao}</p>
+          <p className="text-xs text-foreground/80 leading-relaxed pt-3">{alerta.narrativa}</p>
 
           <div className={`rounded-lg p-2.5 ${cfg.bg} border ${cfg.border}`}>
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1">Recomendação</p>
@@ -101,7 +101,7 @@ const AlertaCard: React.FC<{ alerta: AlertaRadar; isPro: boolean; index: number 
           </div>
 
           <div className="flex items-center justify-between">
-            <p className="text-[10px] text-muted-foreground/70 italic">{alerta.referenciaCLT}</p>
+            <p className="text-[10px] text-muted-foreground/70 italic">{alerta.clt}</p>
             {isPro && alerta.valorEstimado && alerta.valorEstimado > 0 && (
               <div className="bg-accent/10 border border-accent/20 rounded-lg px-2 py-1">
                 <p className="text-[9px] text-muted-foreground">Estimativa</p>

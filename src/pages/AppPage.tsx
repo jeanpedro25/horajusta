@@ -187,16 +187,10 @@ const AppPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <AppHeader title={`${getGreeting()}, ${userName}!`} subtitle={today} />
+    <div className="app-with-bottom-nav min-h-screen bg-background">
+      <AppHeader title={`${getGreeting()}${userName ? `, ${userName}` : ''}!`} />
       <div className="px-4 mt-2 max-w-lg mx-auto space-y-4">
         <TrialBanner />
-        {/* Greeting */}
-        {userName && (
-          <p className="text-sm text-muted-foreground animate-fade-in">
-            {getGreeting()}, <span className="font-semibold text-foreground">{userName}</span> 👋
-          </p>
-        )}
 
         {/* Config incomplete warning */}
         {configIncompleta && (

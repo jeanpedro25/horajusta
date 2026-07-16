@@ -229,7 +229,7 @@ const FechamentoMensalPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="app-with-bottom-nav min-h-screen bg-background">
       <AppHeader title="Fechamento Mensal" subtitle="Controle de horas extras por mês" />
 
       <div className="px-4 pt-4 pb-2 max-w-lg mx-auto space-y-4">

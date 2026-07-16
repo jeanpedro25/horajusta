@@ -5,9 +5,10 @@ import HoraJustaLogo from '@/components/HoraJustaLogo';
 interface AppHeaderProps {
   title?: string;
   subtitle?: string;
+  wide?: boolean;
 }
 
-const AppHeader: React.FC<AppHeaderProps> = ({ title, subtitle }) => {
+const AppHeader: React.FC<AppHeaderProps> = ({ title, subtitle, wide = false }) => {
   const [now, setNow] = useState(() => new Date());
   const dias = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB'];
 
@@ -25,21 +26,21 @@ const AppHeader: React.FC<AppHeaderProps> = ({ title, subtitle }) => {
   return (
     <header className="bg-primary text-primary-foreground px-4 sticky top-0 z-10"
       style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
-      <div className="max-w-lg mx-auto flex flex-col gap-0.5 py-2.5">
+      <div className={`${wide ? 'max-w-5xl' : 'max-w-lg'} mx-auto flex flex-col gap-0.5 py-2.5`}>
         {/* Row 1: Logo + title + day badge */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <HoraJustaLogo size={32} />
-            <span className="text-lg font-semibold">{title || 'Hora Justa'}</span>
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="shrink-0"><HoraJustaLogo size={32} /></span>
+            <span className="truncate text-base font-semibold sm:text-lg">{title || 'Hora Justa'}</span>
           </div>
-          <span className="bg-accent/20 text-accent text-[10px] font-bold px-2 py-0.5 rounded-full">
+          <span className="shrink-0 bg-accent/20 text-accent text-[10px] font-bold px-2 py-0.5 rounded-full">
             {dias[now.getDay()]}
           </span>
         </div>
 
         {/* Row 2: Date + clock */}
         <div className="flex items-center justify-between">
-          <p className="text-xs opacity-60">
+          <p className="text-xs opacity-80">
             {subtitle || formatDatePtBR(now)}
           </p>
           <span className="text-xs opacity-80 font-mono tabular-nums">

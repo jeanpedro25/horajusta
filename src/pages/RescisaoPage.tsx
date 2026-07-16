@@ -216,7 +216,7 @@ const RescisaoPage: React.FC = () => {
 
   if (!modoAtivado) {
     return (
-      <div className="min-h-screen bg-background pb-20">
+      <div className="app-with-bottom-nav min-h-screen bg-background">
         <AppHeader title="Rescisão & FGTS" subtitle="Simulador trabalhista" />
 
         <div className="px-4 pt-4 pb-6 max-w-lg mx-auto space-y-5">
@@ -345,7 +345,7 @@ const RescisaoPage: React.FC = () => {
 
   // ── MODO DESLIGAMENTO ATIVO ───────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="app-with-bottom-nav min-h-screen bg-background">
       <div className="sticky top-0 z-10 bg-rose-600 dark:bg-rose-700 px-4 py-4 flex items-center gap-3">
         <button onClick={() => setModoAtivado(false)} className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
           <ArrowLeft size={16} className="text-white" />

@@ -2,15 +2,30 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import ExcelJS from "npm:exceljs@4.4.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+function corsHeaders(origin: string | null) {
+  const appUrl = Deno.env.get("APP_URL") || "https://horajusta.com";
+  return {
+    "Access-Control-Allow-Origin": origin === appUrl ? origin : appUrl,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Vary": "Origin",
+  };
+}
+
+function hasExportAccess(profile: Record<string, unknown>): boolean {
+  const expiresAt = profile.plano_vencimento ? new Date(String(profile.plano_vencimento)) : null;
+  const notExpired = !expiresAt || expiresAt > new Date();
+  const paid = (profile.plano === "pro" || profile.plano === "anual" || profile.is_pro === true || profile.subscription_status === "active") && notExpired;
+  const createdAt = profile.created_at ? new Date(String(profile.created_at)) : null;
+  const trial = createdAt && Date.now() - createdAt.getTime() < 7 * 24 * 60 * 60 * 1000;
+  return Boolean(paid || trial);
+}
 
 serve(async (req) => {
+  const cors = corsHeaders(req.headers.get("Origin"));
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: cors });
   }
+  if (req.method !== "POST") return new Response("Method not allowed", { status: 405, headers: cors });
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -25,6 +40,12 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+    if (!profile || !hasExportAccess(profile as Record<string, unknown>)) {
+      return new Response(JSON.stringify({ error: "Recurso disponível para usuários PRO" }), {
+        status: 403,
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
     const { data: marcacoes } = await supabase.from("marcacoes_ponto").select("*").eq("user_id", user.id).is("deleted_at", null).order("data").order("horario");
     const { data: bancoEntries } = await supabase.from("banco_horas").select("*").eq("user_id", user.id).order("data");
     const { data: ferias } = await supabase.from("ferias").select("*").eq("user_id", user.id).order("data_inicio");
@@ -501,15 +522,16 @@ serve(async (req) => {
 
     return new Response(uint8, {
       headers: {
-        ...corsHeaders,
+        ...cors,
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition": `attachment; filename="hora-justa-${new Date().toISOString().slice(0, 10)}.xlsx"`,
       },
     });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Erro ao gerar arquivo";
+    return new Response(JSON.stringify({ error: message }), {
       status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...cors, "Content-Type": "application/json" },
     });
   }
 });

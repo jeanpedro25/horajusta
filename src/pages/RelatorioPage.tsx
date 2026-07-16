@@ -1411,44 +1411,45 @@ const RelatorioPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <AppHeader title="Extrato de Jornada" subtitle="Relatório completo da sua jornada" />
-      <div className="px-4 mt-2 max-w-lg mx-auto space-y-4">
+    <div className="app-with-bottom-nav min-h-screen bg-background">
+      <AppHeader title="Extrato de Jornada" subtitle="Relatório completo da sua jornada" wide />
+      <div className="mx-auto mt-2 max-w-lg space-y-4 px-4 lg:max-w-4xl">
+        <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
         {/* Preview Card */}
         <div className="bg-primary text-primary-foreground rounded-2xl p-5 space-y-3">
           <div className="flex items-center gap-2 mb-1">
             <FileText size={18} />
             <span className="font-semibold text-sm">Resumo do mês</span>
           </div>
-          <div className="grid grid-cols-3 gap-3 text-sm">
+          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
             <div>
-              <p className="opacity-60 text-xs">Trabalhado</p>
+              <p className="text-xs text-primary-foreground/80">Trabalhado</p>
               <p className="font-bold">{formatarDuracaoJornada(Math.round(totalHoras * 60))}</p>
             </div>
             <div>
-              <p className="opacity-60 text-xs">Horas extras</p>
-              <p className="font-bold text-accent">{formatarDuracaoJornada(Math.round(totalExtra * 60))}</p>
+              <p className="text-xs text-primary-foreground/80">Horas extras</p>
+              <p className="font-bold text-accent-on-primary">{formatarDuracaoJornada(Math.round(totalExtra * 60))}</p>
             </div>
             <div>
-              <p className="opacity-60 text-xs">Estimativa</p>
-              <p className="font-bold text-accent">{formatCurrency(valorTotal)}</p>
+              <p className="text-xs text-primary-foreground/80">Estimativa</p>
+              <p className="break-words font-bold text-accent-on-primary">{formatCurrency(valorTotal)}</p>
             </div>
             <div>
-              <p className="opacity-60 text-xs">Banco horas</p>
+              <p className="text-xs text-primary-foreground/80">Banco horas</p>
               <p className="font-bold">{formatMinutosHoras(saldoFinal)}</p>
             </div>
             <div>
-              <p className="opacity-60 text-xs">Compensado</p>
+              <p className="text-xs text-primary-foreground/80">Compensado</p>
               <p className="font-bold">{formatMinutosHoras(bhSummary.aCompensar + totalCompensado)}</p>
             </div>
             <div>
-              <p className="opacity-60 text-xs">Dias</p>
+              <p className="text-xs text-primary-foreground/80">Dias</p>
               <p className="font-bold">{days.length}</p>
             </div>
           </div>
           {listaIrregularidades.length > 0 && (
             <div className="mt-2 space-y-1.5">
-              <p className="text-xs text-warning font-semibold">
+              <p className="text-xs text-warning-on-primary font-semibold">
                 ⚠ {listaIrregularidades.length} irregularidade{listaIrregularidades.length > 1 ? 's' : ''}
               </p>
               {listaIrregularidades.slice(0, 4).map((irr, i) => (
@@ -1457,8 +1458,8 @@ const RelatorioPage: React.FC = () => {
                   onClick={() => navigate(irr.rota)}
                   className="w-full text-left flex items-start gap-2 bg-warning/10 rounded-lg px-3 py-2 hover:bg-warning/20 transition-colors"
                 >
-                  <AlertTriangle size={13} className="text-warning shrink-0 mt-0.5" />
-                  <span className="text-[11px] text-warning underline">{irr.mensagem}</span>
+                  <AlertTriangle size={13} className="text-warning-on-primary shrink-0 mt-0.5" />
+                  <span className="text-[11px] text-warning-on-primary underline">{irr.mensagem}</span>
                 </button>
               ))}
             </div>
@@ -1469,12 +1470,13 @@ const RelatorioPage: React.FC = () => {
         <div className="bg-card rounded-2xl border border-border p-5">
           <p className="font-bold mb-3 text-sm">O extrato completo inclui:</p>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li className="flex items-center gap-2"><Clock size={14} className="text-accent shrink-0" />Resumo geral com totais e estimativas</li>
-            <li className="flex items-center gap-2"><TrendingUp size={14} className="text-accent shrink-0" />Demonstrativo financeiro com INSS/IRRF</li>
-            <li className="flex items-center gap-2"><Calendar size={14} className="text-accent shrink-0" />Tabela detalhada com tipo de registro</li>
-            <li className="flex items-center gap-2"><FileText size={14} className="text-accent shrink-0" />Seção de atestados e reconstituídos</li>
-            <li className="flex items-center gap-2"><Shield size={14} className="text-accent shrink-0" />Banco de horas detalhado e aviso legal</li>
+            <li className="flex items-center gap-2"><Clock size={14} className="text-accent-text shrink-0" />Resumo geral com totais e estimativas</li>
+            <li className="flex items-center gap-2"><TrendingUp size={14} className="text-accent-text shrink-0" />Demonstrativo financeiro com INSS/IRRF</li>
+            <li className="flex items-center gap-2"><Calendar size={14} className="text-accent-text shrink-0" />Tabela detalhada com tipo de registro</li>
+            <li className="flex items-center gap-2"><FileText size={14} className="text-accent-text shrink-0" />Seção de atestados e reconstituídos</li>
+            <li className="flex items-center gap-2"><Shield size={14} className="text-accent-text shrink-0" />Banco de horas detalhado e aviso legal</li>
           </ul>
+        </div>
         </div>
 
         {/* Generate Button */}

@@ -17,6 +17,9 @@ dist-ssr
 .env.*
 !.env.example
 
+# Local database administration scripts may contain privileged connection URLs
+push_db.cjs
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -7,8 +7,9 @@ import BottomNav from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
-import { LogOut, Download, User, CreditCard, Info, Trash2, Shield, XCircle } from 'lucide-react';
+import { LogOut, Download, User, CreditCard, Info, Trash2, Shield } from 'lucide-react';
 import { LEGAL_COPY } from '@/lib/legal-copy';
+import { useAdmin } from '@/hooks/useAdmin';
 import BancoHorasConfig from '@/components/BancoHorasConfig';
 import JornadaConfig from '@/components/JornadaConfig';
 import FeriasConfig from '@/components/FeriasConfig';
@@ -18,6 +19,7 @@ import DeleteAccountModal from '@/components/DeleteAccountModal';
 
 const ConfigPage: React.FC = () => {
   const { user, profile, signOut, refreshProfile } = useAuth();
+  const adminAccess = useAdmin();
   const navigate = useNavigate();
   const [deleting, setDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -199,9 +201,10 @@ const ConfigPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <AppHeader title="Configurações" />
-      <div className="px-4 -mt-3 max-w-lg mx-auto space-y-4">
+    <div className="app-with-bottom-nav min-h-screen bg-background">
+      <AppHeader title="Configurações" wide />
+      <div className="mx-auto -mt-3 max-w-lg space-y-4 px-4 lg:max-w-5xl">
+        <div className="grid gap-4 lg:grid-cols-2">
         {/* Profile */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-4">
           <div className="flex items-center gap-2 mb-1">
@@ -357,7 +360,9 @@ const ConfigPage: React.FC = () => {
             ⚠️ O ciclo é definido pelo usuário. Divergências podem ocorrer caso a empresa altere a data de corte sem aviso prévio.
           </p>
         </div>
+        </div>
 
+        <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         {/* Jornada */}
         <JornadaConfig
           tipoJornada={tipoJornada} setTipoJornada={setTipoJornada}
@@ -384,13 +389,16 @@ const ConfigPage: React.FC = () => {
           conversao={regraConv} setConversao={setRegraConv}
           limite={limiteBH} setLimite={setLimiteBH}
         />
+        </div>
 
+        <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         {/* Férias */}
         <FeriasConfig />
 
         {/* Feriados Locais */}
         <div className="bg-card rounded-xl border border-border p-4">
           <FeriadosLocaisConfig />
+        </div>
         </div>
 
         {/* Save */}
@@ -410,21 +418,11 @@ const ConfigPage: React.FC = () => {
             </span>
           </div>
           {(profile?.plano === 'pro' || profile?.plano === 'anual') && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 gap-2 text-xs"
-              onClick={async () => {
-                if (!confirm('Tem certeza que deseja cancelar seu plano? Você voltará ao plano Free.')) return;
-                if (!user) return;
-                await supabase.from('profiles').update({ plano: null } as any).eq('id', user.id);
-                await refreshProfile();
-                toast({ title: 'Plano cancelado', description: 'Você voltou para o plano Free.' });
-              }}
-            >
-              <XCircle size={14} />
-              Cancelar assinatura
-            </Button>
+            <p className="rounded-xl bg-secondary/60 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+              Seu acesso é válido até {profile.plano_vencimento
+                ? new Date(profile.plano_vencimento).toLocaleDateString('pt-BR')
+                : 'o fim do período contratado'}. A compra atual não possui renovação automática.
+            </p>
           )}
         </div>
 
@@ -452,6 +450,20 @@ const ConfigPage: React.FC = () => {
             {LEGAL_COPY.about}
           </p>
         </div>
+
+        {/* Admin */}
+        {adminAccess.data && (
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <button onClick={() => navigate('/admin')} className="flex w-full items-center gap-2 text-left">
+              <Shield size={16} className="text-primary" />
+              <div>
+                <span className="block text-sm font-semibold">Painel administrativo</span>
+                <span className="block text-[11px] text-muted-foreground">Indicadores, usuários e operação</span>
+              </div>
+              <span className="ml-auto text-xs text-muted-foreground">→</span>
+            </button>
+          </div>
+        )}
 
         {/* Privacy */}
         <div className="bg-card rounded-xl border border-border p-4">

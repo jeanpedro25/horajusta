@@ -27,10 +27,10 @@ const SimulatorSection: React.FC = () => {
   }, [salario, horasExtras]);
 
   return (
-    <section id="simulador" className="py-24 px-6">
+    <section id="simulador" className="scroll-mt-20 px-4 py-16 sm:px-6 sm:py-24">
       <div className="max-w-5xl mx-auto">
         <motion.div
-          className="bg-surface-low p-8 md:p-12 rounded-[2rem] flex flex-col md:flex-row gap-12 items-center"
+          className="flex flex-col items-center gap-8 rounded-[2rem] bg-surface-low p-5 sm:p-8 md:flex-row md:gap-12 md:p-12"
           variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }}
         >
           {/* Left — sliders */}
@@ -77,24 +77,24 @@ const SimulatorSection: React.FC = () => {
 
           {/* Right — result card */}
           <div className="flex-1 w-full">
-            <div className="bg-primary text-primary-foreground p-10 rounded-3xl shadow-2xl shadow-primary/20 relative overflow-hidden">
+            <div className="relative overflow-hidden rounded-3xl bg-primary p-6 text-primary-foreground shadow-2xl shadow-primary/20 sm:p-10">
               <div className="absolute top-0 right-0 p-6 opacity-10">
                 <TrendingUp className="h-20 w-20" />
               </div>
               <p className="text-[11px] font-bold uppercase tracking-widest text-accent-container mb-2">
                 Estimativa de Ganhos
               </p>
-              <h3 className="text-5xl md:text-6xl font-extrabold tracking-tighter mb-6">
+              <h3 className="mb-6 break-words text-3xl font-extrabold tracking-tighter sm:text-5xl md:text-6xl">
                 R$ {resultado.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h3>
-              <div className="flex items-center gap-2 mb-6">
-                <TrendingUp className="h-4 w-4 text-accent" />
+              <div className="mb-6 flex items-start gap-2">
+                <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
                 <span className="text-sm font-semibold text-accent">
                   + R$ {resultado.diferenca.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de diferença estimada
                 </span>
               </div>
               <Button
-                className="w-full h-13 bg-accent-container text-primary font-bold rounded-xl hover:bg-white transition-colors text-base"
+                className="h-12 w-full rounded-xl bg-accent-container text-base font-bold text-primary transition-colors hover:bg-white"
                 onClick={() => navigate('/auth')}
               >
                 Simular com meus dados

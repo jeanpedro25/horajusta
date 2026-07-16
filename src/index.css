@@ -30,7 +30,9 @@
     --muted-foreground: 195 12% 35%;
 
     --accent: 174 58% 55%;
-    --accent-foreground: 0 0% 100%;
+    --accent-foreground: 190 100% 15%;
+    --accent-text: 190 100% 23%;
+    --accent-on-primary: 174 76% 78%;
 
     --success: 160 100% 21%;
     --success-foreground: 0 0% 100%;
@@ -40,6 +42,8 @@
 
     --warning: 35 90% 52%;
     --warning-foreground: 0 0% 100%;
+    --warning-text: 28 88% 31%;
+    --warning-on-primary: 42 100% 78%;
 
     --border: 200 18% 86%;
     --input: 200 18% 86%;
@@ -76,6 +80,14 @@
 }
 
 @layer utilities {
+  .app-with-bottom-nav {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .bottom-nav-shell {
+    min-height: calc(6rem + env(safe-area-inset-bottom, 0px));
+  }
+
   .animate-pulse-slow {
     animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
@@ -116,6 +128,19 @@
 /* Smooth scrolling */
 html {
   scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Better tap targets on mobile */

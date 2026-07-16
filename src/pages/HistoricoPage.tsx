@@ -320,9 +320,9 @@ const HistoricoPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <AppHeader title="Histórico de jornada" subtitle={mesAnoAtual()} />
-      <div className="px-4 pt-3 max-w-lg mx-auto space-y-4">
+    <div className="app-with-bottom-nav min-h-screen bg-background">
+      <AppHeader title="Histórico de jornada" subtitle={mesAnoAtual()} wide />
+      <div className="mx-auto max-w-lg space-y-4 px-4 pt-3 md:max-w-3xl">
         {/* Summary cards */}
         <div className="grid grid-cols-3 gap-2 animate-slide-up">
           <div className="bg-card rounded-xl p-3 border border-border text-center">
@@ -331,14 +331,14 @@ const HistoricoPage: React.FC = () => {
             <p className="text-sm font-bold">{formatarDuracaoJornada(Math.round(totalHoras * 60))}</p>
           </div>
           <div className="bg-card rounded-xl p-3 border border-border text-center">
-            <TrendingUp size={14} className="mx-auto text-warning mb-1" />
+            <TrendingUp size={14} className="mx-auto text-warning-text mb-1" />
             <p className="text-[10px] text-muted-foreground">extras</p>
-            <p className={`text-sm font-bold ${totalExtra > 0 ? 'text-warning' : ''}`}>
+            <p className={`text-sm font-bold ${totalExtra > 0 ? 'text-warning-text' : ''}`}>
               {totalExtra > 0 ? `+${formatarDuracaoJornada(Math.round(totalExtra * 60))}` : '—'}
             </p>
           </div>
           <div className="bg-card rounded-xl p-3 border border-border text-center">
-            <Calendar size={14} className="mx-auto text-accent mb-1" />
+            <Calendar size={14} className="mx-auto text-accent-text mb-1" />
             <p className="text-[10px] text-muted-foreground">dias</p>
             <p className="text-sm font-bold">{diasTrabalhados}</p>
           </div>

@@ -18,7 +18,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ unreadAlerts = 0 }) => {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card/95 glass-card border-t border-border z-50 safe-bottom">
+    <nav aria-label="Navegação principal" className="bottom-nav-shell fixed bottom-0 left-0 right-0 bg-card/95 glass-card border-t border-border z-50 safe-bottom">
       <p className="text-[9px] text-muted-foreground/40 text-center pt-1 px-4">
         Os registros são de responsabilidade do usuário. Valores são estimativas.
       </p>
@@ -28,6 +28,8 @@ const BottomNav: React.FC<BottomNavProps> = ({ unreadAlerts = 0 }) => {
           return (
             <button
               key={path}
+              type="button"
+              aria-current={active ? 'page' : undefined}
               onClick={() => navigate(path)}
               className={`flex flex-col items-center gap-0.5 px-4 py-1.5 rounded-xl transition-all duration-200 relative ${
                 active

@@ -29,7 +29,7 @@ const problems = [
 ];
 
 const ProblemSection: React.FC = () => (
-  <section id="problema" className="py-24 bg-surface-low">
+  <section id="problema" className="scroll-mt-20 bg-surface-low py-24">
     <div className="max-w-5xl mx-auto px-6">
       <motion.h2
         className="text-3xl md:text-4xl font-bold text-center text-foreground mb-16 tracking-tight"
