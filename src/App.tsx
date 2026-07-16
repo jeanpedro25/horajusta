@@ -60,7 +60,9 @@ const AuthRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     : requestedRedirect?.startsWith('/') && !requestedRedirect.startsWith('//')
       ? requestedRedirect
       : null;
-  if (loading) return <FullScreenLoader />;
+  // The login form must remain available even if session restoration is delayed.
+  if (loading && session) return <FullScreenLoader />;
+  if (!session) return <>{children}</>;
   if (session && (!profile || !(profile as any).aceite_termos)) return <Navigate to="/aceite-termos" replace />;
   if (session && profile?.onboarding_completo) return <Navigate to={redirect || "/app"} replace />;
   if (session && !profile?.onboarding_completo) return <Navigate to="/onboarding" replace />;

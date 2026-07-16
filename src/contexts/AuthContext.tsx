@@ -6,6 +6,18 @@ import { clearAllClientState, clearTransientClientState } from '@/lib/client-sta
 
 type Profile = Tables<'profiles'>;
 
+function getStoredSession(): Session | null {
+  try {
+    const storageKey = Object.keys(localStorage).find(key => key.startsWith('sb-') && key.endsWith('-auth-token'));
+    if (!storageKey) return null;
+    const stored = JSON.parse(localStorage.getItem(storageKey) || 'null');
+    const session = stored?.currentSession ?? stored;
+    return session?.access_token && session?.user ? session as Session : null;
+  } catch {
+    return null;
+  }
+}
+
 interface AuthContextType {
   session: Session | null;
   user: User | null;
@@ -91,6 +103,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
+    let authInitialized = false;
 
     const syncAuthState = (nextSession: Session | null) => {
       if (!mounted) return;
@@ -131,11 +144,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       // Supabase holds an internal auth lock while invoking this callback.
       // Defer profile queries until the callback has returned to avoid a deadlock.
-      window.setTimeout(() => syncAuthState(nextSession), 0);
+      window.setTimeout(() => {
+        if (!mounted) return;
+        authInitialized = true;
+        syncAuthState(nextSession);
+      }, 0);
     });
+
+    // Some browsers can leave Web Locks held after an interrupted auth request.
+    // Never keep the entire app blocked if INITIAL_SESSION is not delivered.
+    const initializationFallback = window.setTimeout(() => {
+      if (!mounted || authInitialized) return;
+      authInitialized = true;
+      syncAuthState(getStoredSession());
+    }, 1500);
 
     return () => {
       mounted = false;
+      window.clearTimeout(initializationFallback);
       subscription.unsubscribe();
     };
   }, []);
