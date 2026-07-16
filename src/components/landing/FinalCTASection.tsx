@@ -16,14 +16,14 @@ const FinalCTASection: React.FC = () => {
         viewport={{ once: true }}
         transition={{ duration: 0.65 }}
       >
-        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Comece pelo próximo horário</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Comece antes da próxima batida de ponto</p>
         <h2 className="font-display mx-auto mt-5 max-w-3xl text-4xl font-semibold leading-[1.05] tracking-[-0.045em] sm:text-5xl lg:text-6xl">
-          Sua rotina já acontece. Falta deixar o registro em ordem.
+          Se a empresa registra suas horas, você também pode registrar.
         </h2>
-        <p className="mx-auto mt-6 max-w-xl text-sm leading-7 text-muted-foreground sm:text-base">Crie sua conta, configure sua jornada e registre seu próximo ponto no Hora Justa.</p>
+        <p className="mx-auto mt-6 max-w-xl text-sm leading-7 text-muted-foreground sm:text-base">Crie sua conta, configure sua jornada e construa um histórico próprio para conferir cada dia trabalhado.</p>
         <div className="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Button size="lg" className="h-14 w-full rounded-xl bg-primary px-8 text-sm font-bold text-primary-foreground hover:bg-primary/90 sm:w-auto" onClick={() => navigate('/auth')}>
-            Começar meu registro
+            Quero proteger minhas horas
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
           <button type="button" className="text-sm font-semibold text-muted-foreground underline decoration-border decoration-2 underline-offset-8 hover:text-primary" onClick={() => navigate('/auth')}>Já tenho uma conta</button>

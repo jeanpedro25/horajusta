@@ -13,10 +13,10 @@ const FeaturesSection: React.FC = () => (
     <div className="mx-auto max-w-6xl">
       <div className="mb-12 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Do registro ao relatório</p>
-          <h2 className="font-display mt-3 max-w-xl text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Um fluxo simples para uma rotina que já é corrida.</h2>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Registre, confira, compare</p>
+          <h2 className="font-display mt-3 max-w-xl text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Informação para não aceitar qualquer conta no fim do mês.</h2>
         </div>
-        <p className="max-w-sm text-sm leading-6 text-muted-foreground">Sem planilhas improvisadas. Sem depender da memória no fim do mês.</p>
+        <p className="max-w-sm text-sm leading-6 text-muted-foreground">Seu registro pessoal ajuda a conferir horas trabalhadas, intervalos, banco de horas e valores estimados.</p>
       </div>
 
       <div className="grid overflow-hidden border border-border bg-card md:grid-cols-3">

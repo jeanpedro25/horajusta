@@ -19,10 +19,10 @@ const SocialProofSection: React.FC = () => (
         transition={{ duration: 0.6 }}
       >
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-accent-on-primary">Transparência por princípio</p>
-          <h2 className="font-display mt-4 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Informação útil começa com contexto.</h2>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-accent-on-primary">Mais informação, menos dúvida</p>
+          <h2 className="font-display mt-4 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Você trabalha as horas. Também deve conseguir conferi-las.</h2>
         </div>
-        <p className="max-w-xl text-sm leading-7 text-white/70 sm:text-base">Nada de números milagrosos ou promessas automáticas. Você mantém o histórico; o app ajuda a organizar e estimar.</p>
+        <p className="max-w-xl text-sm leading-7 text-white/70 sm:text-base">O Hora Justa coloca seu histórico em ordem para você comparar registros e perceber quando algo merece ser revisado.</p>
       </motion.div>
 
       <div className="grid md:grid-cols-3">

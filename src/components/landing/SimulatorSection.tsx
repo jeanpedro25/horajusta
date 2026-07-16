@@ -35,8 +35,8 @@ const SimulatorSection: React.FC = () => {
           <div className="p-6 sm:p-10 lg:p-12">
             <div className="mb-9 flex items-start justify-between gap-5">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Simulador aberto</p>
-                <h2 className="font-display mt-3 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Uma conta simples, com premissas visíveis.</h2>
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Quanto valem suas horas extras?</p>
+                <h2 className="font-display mt-3 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Faça uma estimativa antes de conferir o pagamento.</h2>
               </div>
               <Calculator className="hidden h-7 w-7 shrink-0 text-primary sm:block" strokeWidth={1.6} />
             </div>
@@ -89,7 +89,7 @@ const SimulatorSection: React.FC = () => {
 
             <div className="relative mt-auto pt-8">
               <Button className="h-12 w-full rounded-xl bg-accent text-sm font-bold text-accent-foreground hover:bg-accent/90" onClick={() => navigate('/auth')}>
-                Calcular com minha jornada
+                Conferir minha jornada completa
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
               <p className="mt-4 text-center text-xs leading-5 text-white/55">Resultado estimativo. Não representa valor líquido ou direito reconhecido.</p>

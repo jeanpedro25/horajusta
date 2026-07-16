@@ -35,7 +35,7 @@ const HeroSection: React.FC = () => {
             custom={0}
           >
             <span className="h-px w-8 bg-primary" />
-            <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-primary">Controle pessoal de jornada</span>
+            <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-primary">Seu trabalho merece um registro justo</span>
           </motion.div>
 
           <motion.h1
@@ -45,8 +45,8 @@ const HeroSection: React.FC = () => {
             animate="visible"
             custom={0.08}
           >
-            Seu ponto,
-            <span className="block text-primary">organizado do seu lado.</span>
+            Não deixe suas horas
+            <span className="block text-primary">passarem sem registro.</span>
           </motion.h1>
 
           <motion.p
@@ -56,7 +56,7 @@ const HeroSection: React.FC = () => {
             animate="visible"
             custom={0.16}
           >
-            Registre entradas, intervalos e saídas. Acompanhe seu banco de horas e gere estimativas a partir dos dados que você informa.
+            Tenha seu próprio histórico de entradas, intervalos e saídas para conferir o ponto da empresa, acompanhar horas extras e questionar diferenças com mais informação.
           </motion.p>
 
           <motion.div
@@ -71,7 +71,7 @@ const HeroSection: React.FC = () => {
               className="h-14 w-full rounded-xl bg-primary px-7 text-sm font-bold text-primary-foreground shadow-[0_12px_30px_-16px_hsl(var(--primary))] transition-transform hover:-translate-y-0.5 hover:bg-primary/90 sm:w-auto"
               onClick={() => navigate('/auth')}
             >
-              Criar meu registro
+              Proteger minhas horas
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
             <button
@@ -79,7 +79,7 @@ const HeroSection: React.FC = () => {
               onClick={() => document.getElementById('simulador')?.scrollIntoView({ behavior: 'smooth' })}
               className="text-sm font-semibold text-foreground underline decoration-border decoration-2 underline-offset-8 transition-colors hover:text-primary"
             >
-              Fazer uma simulação
+              Simular minhas horas extras
             </button>
           </motion.div>
 

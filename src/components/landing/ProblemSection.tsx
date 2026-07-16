@@ -33,12 +33,12 @@ const ProblemSection: React.FC = () => (
           viewport={{ once: true, margin: '-80px' }}
           transition={{ duration: 0.6 }}
         >
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Por que manter seu próprio registro</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Não dependa apenas da memória</p>
           <h2 className="font-display mt-4 text-3xl font-semibold leading-tight tracking-[-0.035em] sm:text-4xl">
-            O mês passa rápido. Os detalhes, nem sempre.
+            Minutos esquecidos podem virar horas no fim do mês.
           </h2>
           <p className="mt-5 max-w-md text-sm leading-7 text-muted-foreground sm:text-base">
-            O Hora Justa funciona como um caderno digital da sua rotina: datas, horários e observações reunidos em um só lugar.
+            Quando você mantém um registro próprio, fica mais fácil comparar horários, identificar divergências e conversar com a empresa com dados organizados.
           </p>
         </motion.div>
 

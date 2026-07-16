@@ -33,8 +33,8 @@ const PricingSection: React.FC = () => {
           transition={{ duration: 0.6 }}
         >
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Planos PRO</p>
-          <h2 className="font-display mt-4 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Escolha o período. Os recursos continuam claros.</h2>
-          <p className="mt-4 text-sm leading-6 text-muted-foreground">Compra por período, sem renovação automática.</p>
+          <h2 className="font-display mt-4 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Seu tempo vale mais do que o preço de perder uma hora.</h2>
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">Tenha relatórios, histórico e ferramentas para acompanhar sua jornada. Compra por período, sem renovação automática.</p>
         </motion.div>
 
         <div className="grid border border-border md:grid-cols-2">
