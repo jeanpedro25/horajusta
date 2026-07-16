@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 
 const NotFound = () => {
@@ -15,12 +15,12 @@ const NotFound = () => {
         <p className="text-xl font-semibold">Página não encontrada</p>
         <p className="mb-6 mt-2 text-sm text-muted-foreground">O endereço acessado não existe ou foi alterado.</p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Link to="/auth" className="flex min-h-11 items-center justify-center rounded-xl border border-border px-4 text-sm font-semibold text-foreground hover:bg-secondary">
+          <a href="/auth" className="flex min-h-11 items-center justify-center rounded-xl border border-border px-4 text-sm font-semibold text-foreground hover:bg-secondary">
             Entrar no aplicativo
-          </Link>
-          <Link to="/chefe/entrar" className="flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+          </a>
+          <a href="/chefe/entrar" className="flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
             Entrar como chefe
-          </Link>
+          </a>
         </div>
       </div>
     </div>
