@@ -31,7 +31,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const initialLoadDone = React.useRef(false);
   const profileRequestId = React.useRef(0);
   const lastUserId = React.useRef<string | null>(null);
 
@@ -129,27 +128,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      if (!mounted) return;
-      if (!initialLoadDone.current && event === 'INITIAL_SESSION') return;
-      syncAuthState(nextSession);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      // Supabase holds an internal auth lock while invoking this callback.
+      // Defer profile queries until the callback has returned to avoid a deadlock.
+      window.setTimeout(() => syncAuthState(nextSession), 0);
     });
-
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        if (!mounted) return;
-        initialLoadDone.current = true;
-        syncAuthState(session);
-      })
-      .catch((error) => {
-        console.error('Erro ao restaurar sessão', error);
-        if (!mounted) return;
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-        setLoading(false);
-        initialLoadDone.current = true;
-      });
 
     return () => {
       mounted = false;
