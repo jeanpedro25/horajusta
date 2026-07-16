@@ -7,17 +7,13 @@ import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import HoraJustaLogo from '@/components/HoraJustaLogo';
 
-/** Lovable OAuth só existe na hospedagem deles; em localhost/LAN o Vite devolve 404 em /~/oauth/initiate */
+/**
+ * Use Supabase Google OAuth everywhere — Lovable OAuth only works on lovable.app domains.
+ * On horajusta.com and Vercel deployments, always use the Supabase provider directly.
+ */
 function useSupabaseGoogleOAuth(): boolean {
   if (import.meta.env.VITE_USE_LOVABLE_OAUTH === 'true') return false;
-  if (import.meta.env.VITE_USE_SUPABASE_GOOGLE === 'true') return true;
-  if (import.meta.env.DEV) return true;
-  const h = typeof window !== 'undefined' ? window.location.hostname : '';
-  if (h === 'localhost' || h === '127.0.0.1') return true;
-  if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
-  if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
-  if (/^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
-  return false;
+  return true; // Always use Supabase OAuth in production
 }
 
 const AuthPage: React.FC = () => {
@@ -120,11 +116,7 @@ const AuthPage: React.FC = () => {
           </span>
         </div>
       </div>
-      {isChiefLogin && (
-        <div className="mb-4 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-accent-container">
-          Acesso do Chefe
-        </div>
-      )}
+
 
       {/* Card */}
       <div className="bg-card rounded-2xl p-7 w-full max-w-[400px] shadow-2xl mt-4">

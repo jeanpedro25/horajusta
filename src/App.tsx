@@ -10,6 +10,7 @@ import AdminRoute from "@/components/admin/AdminRoute";
 
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
+const ChefEntrarPage = lazy(() => import("./pages/ChefEntrarPage"));
 const AceiteTermosPage = lazy(() => import("./pages/AceiteTermosPage"));
 const OnboardingPage = lazy(() => import("./pages/OnboardingPage"));
 const AppPage = lazy(() => import("./pages/AppPage"));
@@ -91,7 +92,7 @@ const App = () => (
               <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
               <Route path="/login" element={<Navigate to="/auth" replace />} />
               <Route path="/entrar" element={<Navigate to="/auth" replace />} />
-              <Route path="/chefe/entrar" element={<AuthRoute><AuthPage /></AuthRoute>} />
+              <Route path="/chefe/entrar" element={<ChefEntrarPage />} />
               <Route path="/admin/login" element={<Navigate to="/chefe/entrar" replace />} />
               <Route path="/admin/entrar" element={<Navigate to="/chefe/entrar" replace />} />
               <Route path="/aceite-termos" element={<TermsRoute><AceiteTermosPage /></TermsRoute>} />
