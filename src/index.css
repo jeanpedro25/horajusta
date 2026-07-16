@@ -80,6 +80,18 @@
 }
 
 @layer utilities {
+  .font-display {
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+
+  .landing-grid {
+    background-color: hsl(var(--background));
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.32) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.22) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
   .app-with-bottom-nav {
     padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
   }
@@ -133,18 +145,6 @@ html {
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
-  }
-
-  .font-display {
-    font-family: 'IBM Plex Sans', sans-serif;
-  }
-
-  .landing-grid {
-    background-color: hsl(var(--background));
-    background-image:
-      linear-gradient(hsl(var(--border) / 0.32) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--border) / 0.22) 1px, transparent 1px);
-    background-size: 32px 32px;
   }
 
   *, *::before, *::after {

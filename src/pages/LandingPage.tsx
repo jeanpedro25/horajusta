@@ -14,8 +14,8 @@ const LandingPage: React.FC = () => (
     <LandingNav />
     <HeroSection />
     <ProblemSection />
-    <SimulatorSection />
     <FeaturesSection />
+    <SimulatorSection />
     <SocialProofSection />
     <PricingSection />
     <FinalCTASection />

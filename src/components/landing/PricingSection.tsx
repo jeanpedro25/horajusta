@@ -6,17 +6,18 @@ import { Button } from '@/components/ui/button';
 import { LEGAL_COPY } from '@/lib/legal-copy';
 
 const monthlyFeatures = [
-  'Relatório PDF e exportação Excel',
-  'Banco de horas avançado',
-  'Fechamento mensal',
-  'Simulação de rescisão',
+  'Estimativas financeiras do mês',
+  'Relatório PDF profissional',
+  'Radar Trabalhista completo',
+  'Fechamento mensal de horas extras',
+  'Simulações de FGTS e rescisão',
 ];
 
 const annualFeatures = [
-  'Tudo do plano mensal',
+  'Todos os recursos do PRO',
   '12 meses de acesso',
-  'Histórico de relatórios ilimitado',
-  'Acesso antecipado a novidades',
+  'Economia comparada ao mensal',
+  'Uma única compra para o ano',
 ];
 
 const PricingSection: React.FC = () => {
@@ -33,8 +34,13 @@ const PricingSection: React.FC = () => {
           transition={{ duration: 0.6 }}
         >
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Planos PRO</p>
-          <h2 className="font-display mt-4 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Seu tempo vale mais do que o preço de perder uma hora.</h2>
-          <p className="mt-4 text-sm leading-6 text-muted-foreground">Tenha relatórios, histórico e ferramentas para acompanhar sua jornada. Compra por período, sem renovação automática.</p>
+          <h2 className="font-display mt-4 text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">Comece registrando. Ative o PRO para enxergar o quadro completo.</h2>
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">Ao criar sua conta, você testa os recursos PRO por 7 dias. Depois, escolha o período que fizer sentido para sua rotina.</p>
+        </motion.div>
+
+        <motion.div className="mb-5 flex flex-col justify-between gap-4 rounded-2xl border border-primary/15 bg-primary/[0.045] p-5 sm:flex-row sm:items-center" initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+          <div><p className="text-sm font-bold text-primary">Você não precisa pagar para começar</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Crie a conta, configure sua jornada e experimente o fluxo real do aplicativo.</p></div>
+          <span className="shrink-0 rounded-full bg-primary px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-white">7 dias PRO incluídos</span>
         </motion.div>
 
         <div className="grid border border-border md:grid-cols-2">
@@ -56,7 +62,7 @@ const PricingSection: React.FC = () => {
             <ul className="my-9 flex-1 space-y-3">
               {monthlyFeatures.map(feature => <li key={feature} className="flex items-start gap-3 text-sm text-foreground"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />{feature}</li>)}
             </ul>
-            <Button variant="outline" className="h-12 rounded-xl border-primary/30 font-bold text-primary hover:bg-primary/5" onClick={() => navigate('/auth')}>Escolher mensal</Button>
+            <Button variant="outline" className="h-12 rounded-xl border-primary/30 font-bold text-primary hover:bg-primary/5" onClick={() => navigate('/auth')}>Testar e escolher mensal</Button>
           </motion.article>
 
           <motion.article
@@ -78,7 +84,7 @@ const PricingSection: React.FC = () => {
               {annualFeatures.map(feature => <li key={feature} className="flex items-start gap-3 text-sm"><Check className="mt-0.5 h-4 w-4 shrink-0 text-accent-on-primary" />{feature}</li>)}
             </ul>
             <Button className="h-12 rounded-xl bg-accent font-bold text-accent-foreground hover:bg-accent/90" onClick={() => navigate('/auth')}>
-              Escolher anual
+              Testar e escolher anual
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </motion.article>
