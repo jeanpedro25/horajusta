@@ -1,32 +1,31 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import { ArrowUpRight } from 'lucide-react';
 import HoraJustaLogo from '@/components/HoraJustaLogo';
 
 const LandingNav: React.FC = () => {
   const navigate = useNavigate();
-
-  const scrollTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-      <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-16">
-        <HoraJustaLogo size={36} showText />
-        <div className="hidden md:flex items-center gap-6">
-          <button onClick={() => scrollTo('problema')} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Direitos</button>
-          <button onClick={() => scrollTo('simulador')} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Calculadora</button>
-          <button onClick={() => scrollTo('precos')} className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Planos</button>
+    <nav className="fixed inset-x-0 top-0 z-50 border-b border-border/70 bg-background/90 backdrop-blur-xl" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+      <div className="mx-auto flex h-[4.5rem] max-w-6xl items-center justify-between px-4 sm:px-6">
+        <HoraJustaLogo size={34} showText />
+        <div className="hidden items-center gap-8 md:flex">
+          <button onClick={() => scrollTo('problema')} className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-primary">Por que registrar</button>
+          <button onClick={() => scrollTo('simulador')} className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-primary">Simulador</button>
+          <button onClick={() => scrollTo('precos')} className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:text-primary">Planos</button>
         </div>
-        <Button
-          className="rounded-xl bg-gradient-to-r from-primary to-accent-container text-primary-foreground font-semibold text-sm px-6 shadow-lg shadow-primary/10 hover:shadow-xl hover:shadow-primary/20 transition-all hover:-translate-y-0.5"
+        <button
+          type="button"
           onClick={() => navigate('/auth')}
+          className="flex min-h-11 items-center gap-2 rounded-lg border border-primary bg-primary px-4 text-xs font-bold uppercase tracking-[0.1em] text-primary-foreground transition-colors hover:bg-primary/90 sm:px-5"
         >
-          Começar Agora
-        </Button>
+          <span className="hidden sm:inline">Acessar app</span>
+          <span className="sm:hidden">Entrar</span>
+          <ArrowUpRight className="h-4 w-4" />
+        </button>
       </div>
-      <div className="h-px bg-surface-low" />
     </nav>
   );
 };

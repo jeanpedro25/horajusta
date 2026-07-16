@@ -1,57 +1,33 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ChevronRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const FinalCTASection: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <section className="py-28 px-6 text-center relative overflow-hidden">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] bg-accent-container/15 blur-[150px] rounded-full -z-10" />
-
-      <motion.h2
-        className="text-3xl md:text-5xl font-extrabold text-foreground mb-6 tracking-tight max-w-2xl mx-auto"
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.6 }}
-      >
-        Pronto para organizar sua jornada?
-      </motion.h2>
-
-      <motion.p
-        className="text-lg text-muted-foreground mb-10 max-w-xl mx-auto"
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ delay: 0.1, duration: 0.6 }}
-      >
-        Junte-se a milhares de usuários que controlam suas horas de forma inteligente.
-      </motion.p>
-
+    <section className="landing-grid px-4 py-20 sm:px-6 sm:py-28">
       <motion.div
-        className="flex flex-col items-center gap-4"
-        initial={{ opacity: 0, y: 20 }}
+        className="mx-auto max-w-6xl border-y border-primary/20 py-12 text-center sm:py-16"
+        initial={{ opacity: 0, y: 22 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
-        transition={{ delay: 0.2, duration: 0.6 }}
+        transition={{ duration: 0.65 }}
       >
-        <Button
-          size="lg"
-          className="h-16 px-12 text-lg font-extrabold rounded-2xl bg-gradient-to-r from-primary to-accent-container text-primary-foreground shadow-2xl shadow-primary/15 transition-all hover:scale-105 active:scale-95"
-          onClick={() => navigate('/auth')}
-        >
-          Começar agora
-          <ChevronRight className="ml-2 h-6 w-6" />
-        </Button>
-        <button
-          className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
-          onClick={() => navigate('/auth')}
-        >
-          Já tenho conta
-        </button>
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Comece pelo próximo horário</p>
+        <h2 className="font-display mx-auto mt-5 max-w-3xl text-4xl font-semibold leading-[1.05] tracking-[-0.045em] sm:text-5xl lg:text-6xl">
+          Sua rotina já acontece. Falta deixar o registro em ordem.
+        </h2>
+        <p className="mx-auto mt-6 max-w-xl text-sm leading-7 text-muted-foreground sm:text-base">Crie sua conta, configure sua jornada e registre seu próximo ponto no Hora Justa.</p>
+        <div className="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <Button size="lg" className="h-14 w-full rounded-xl bg-primary px-8 text-sm font-bold text-primary-foreground hover:bg-primary/90 sm:w-auto" onClick={() => navigate('/auth')}>
+            Começar meu registro
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+          <button type="button" className="text-sm font-semibold text-muted-foreground underline decoration-border decoration-2 underline-offset-8 hover:text-primary" onClick={() => navigate('/auth')}>Já tenho uma conta</button>
+        </div>
       </motion.div>
     </section>
   );

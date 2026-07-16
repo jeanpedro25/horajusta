@@ -1,99 +1,89 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, ChevronRight } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LEGAL_COPY } from '@/lib/legal-copy';
 
-const scaleIn = {
-  hidden: { opacity: 0, scale: 0.95 },
-  visible: (i: number = 0) => ({
-    opacity: 1, scale: 1,
-    transition: { delay: i * 0.12, duration: 0.5, ease: 'easeOut' as const },
-  }),
-};
+const monthlyFeatures = [
+  'Relatório PDF e exportação Excel',
+  'Banco de horas avançado',
+  'Fechamento mensal',
+  'Simulação de rescisão',
+];
+
+const annualFeatures = [
+  'Tudo do plano mensal',
+  '12 meses de acesso',
+  'Histórico de relatórios ilimitado',
+  'Acesso antecipado a novidades',
+];
 
 const PricingSection: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <section id="precos" className="scroll-mt-20 bg-surface-low px-6 py-24">
-      <div className="max-w-4xl mx-auto">
+    <section id="precos" className="scroll-mt-24 bg-card px-4 py-20 sm:px-6 sm:py-28">
+      <div className="mx-auto max-w-5xl">
         <motion.div
-          className="text-center mb-14"
+          className="mx-auto mb-12 max-w-2xl text-center"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-            Controle total da sua jornada
-          </h2>
-          <p className="text-muted-foreground mt-3">Cancele quando quiser</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Planos PRO</p>
+          <h2 className="font-display mt-4 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Escolha o período. Os recursos continuam claros.</h2>
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">Compra por período, sem renovação automática.</p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-          {/* Mensal */}
-          <motion.div
-            className="bg-card p-10 rounded-[2rem] flex flex-col"
-            variants={scaleIn} initial="hidden" whileInView="visible" viewport={{ once: true }} custom={1}
+        <div className="grid border border-border md:grid-cols-2">
+          <motion.article
+            className="flex flex-col border-b border-border p-7 md:border-b-0 md:border-r sm:p-10"
+            initial={{ opacity: 0, x: -16 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.55 }}
           >
-            <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-4">Plano Mensal</p>
-            <div className="mb-6">
-              <span className="text-4xl font-extrabold text-foreground">R$ 9,90</span>
-              <span className="text-muted-foreground text-sm">/mês</span>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">PRO Mensal</p>
+              <span className="font-mono text-xs text-muted-foreground">30 DIAS</span>
             </div>
-            <ul className="space-y-3 mb-10 flex-1">
-              {['Cálculos ilimitados', 'Relatórios em PDF', 'Banco de horas'].map((f, i) => (
-                <li key={i} className="flex items-center gap-3 text-sm text-foreground">
-                  <Check className="h-4 w-4 text-success shrink-0" />
-                  {f}
-                </li>
-              ))}
+            <div className="mt-7 flex items-end gap-2">
+              <span className="font-mono text-4xl font-semibold tracking-[-0.06em] text-foreground">R$ 9,90</span>
+              <span className="pb-1 text-sm text-muted-foreground">/ mês</span>
+            </div>
+            <ul className="my-9 flex-1 space-y-3">
+              {monthlyFeatures.map(feature => <li key={feature} className="flex items-start gap-3 text-sm text-foreground"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />{feature}</li>)}
             </ul>
-            <Button
-              variant="outline"
-              className="h-12 w-full rounded-xl border-primary/30 font-bold text-primary hover:bg-primary/5"
-              onClick={() => navigate('/auth')}
-            >
-              Assinar Mensal
-            </Button>
-          </motion.div>
+            <Button variant="outline" className="h-12 rounded-xl border-primary/30 font-bold text-primary hover:bg-primary/5" onClick={() => navigate('/auth')}>Escolher mensal</Button>
+          </motion.article>
 
-          {/* Anual */}
-          <motion.div
-            className="bg-primary text-primary-foreground p-8 rounded-[2.5rem] flex flex-col shadow-2xl shadow-primary/20 relative"
-            variants={scaleIn} initial="hidden" whileInView="visible" viewport={{ once: true }} custom={2}
+          <motion.article
+            className="relative flex flex-col bg-primary p-7 text-primary-foreground sm:p-10"
+            initial={{ opacity: 0, x: 16 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.55 }}
           >
-            <div className="absolute top-5 right-5 bg-accent-container text-primary px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">
-              Mais Popular
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-accent-on-primary">PRO Anual</p>
+              <span className="border border-accent-on-primary/30 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-accent-on-primary">Economia de R$ 28,90</span>
             </div>
-            <p className="text-[11px] font-bold uppercase tracking-widest text-accent-container mb-4">Plano Anual</p>
-            <div className="mb-2">
-              <span className="text-5xl font-extrabold">R$ 89,90</span>
-              <span className="opacity-80 text-sm">/ano</span>
+            <div className="mt-7 flex items-end gap-2">
+              <span className="font-mono text-4xl font-semibold tracking-[-0.06em]">R$ 89,90</span>
+              <span className="pb-1 text-sm text-white/60">/ ano</span>
             </div>
-            <p className="text-sm opacity-70 mb-6">Valor alinhado ao checkout Mercado Pago</p>
-            <ul className="space-y-3 mb-10 flex-1">
-              {['Tudo do plano mensal', 'Histórico ilimitado', 'Backup na nuvem', 'Alertas inteligentes', 'Simulação de valor estimado'].map((f, i) => (
-                <li key={i} className="flex items-center gap-3 text-sm">
-                  <Check className="h-4 w-4 text-accent-container shrink-0" />
-                  {f}
-                </li>
-              ))}
+            <ul className="my-9 flex-1 space-y-3">
+              {annualFeatures.map(feature => <li key={feature} className="flex items-start gap-3 text-sm"><Check className="mt-0.5 h-4 w-4 shrink-0 text-accent-on-primary" />{feature}</li>)}
             </ul>
-            <Button
-              className="h-12 w-full rounded-xl bg-accent-container text-base font-bold text-primary transition-colors hover:bg-white"
-              onClick={() => navigate('/auth')}
-            >
-              Assinar Anual
-              <ChevronRight className="ml-1 h-5 w-5" />
+            <Button className="h-12 rounded-xl bg-accent font-bold text-accent-foreground hover:bg-accent/90" onClick={() => navigate('/auth')}>
+              Escolher anual
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-          </motion.div>
+          </motion.article>
         </div>
-        <p className="text-xs text-muted-foreground text-center mt-8">
-          {LEGAL_COPY.subscription}
-        </p>
+        <p className="mx-auto mt-7 max-w-2xl text-center text-xs leading-5 text-muted-foreground">{LEGAL_COPY.subscription}</p>
       </div>
     </section>
   );

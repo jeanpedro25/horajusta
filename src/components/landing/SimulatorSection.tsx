@@ -1,18 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { TrendingUp, ChevronRight } from 'lucide-react';
+import { ArrowRight, Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { LEGAL_COPY } from '@/lib/legal-copy';
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number = 0) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.12, duration: 0.6, ease: 'easeOut' as const },
-  }),
-};
 
 const SimulatorSection: React.FC = () => {
   const navigate = useNavigate();
@@ -21,88 +13,86 @@ const SimulatorSection: React.FC = () => {
 
   const resultado = useMemo(() => {
     const valorHora = salario / 220;
-    const extra50 = valorHora * 1.5 * horasExtras;
-    const diferenca = valorHora * 0.5 * horasExtras;
-    return { total: extra50, diferenca };
+    return {
+      total: valorHora * 1.5 * horasExtras,
+      adicional: valorHora * 0.5 * horasExtras,
+      valorHora,
+    };
   }, [salario, horasExtras]);
 
+  const currency = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
   return (
-    <section id="simulador" className="scroll-mt-20 px-4 py-16 sm:px-6 sm:py-24">
-      <div className="max-w-5xl mx-auto">
+    <section id="simulador" className="scroll-mt-24 border-y border-border bg-surface-low px-4 py-20 sm:px-6 sm:py-28">
+      <div className="mx-auto max-w-6xl">
         <motion.div
-          className="flex flex-col items-center gap-8 rounded-[2rem] bg-surface-low p-5 sm:p-8 md:flex-row md:gap-12 md:p-12"
-          variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }}
+          className="grid overflow-hidden border border-primary/15 bg-card shadow-[0_30px_80px_-55px_rgba(7,61,68,0.55)] lg:grid-cols-[1.05fr_0.95fr]"
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-80px' }}
+          transition={{ duration: 0.65 }}
         >
-          {/* Left — sliders */}
-          <div className="flex-1 space-y-8 w-full">
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
-              Simule uma estimativa agora
-            </h2>
-            <div className="space-y-6">
+          <div className="p-6 sm:p-10 lg:p-12">
+            <div className="mb-9 flex items-start justify-between gap-5">
               <div>
-                <div className="flex justify-between mb-3">
-                  <label className="text-sm font-medium text-foreground">Salário Base</label>
-                  <span className="text-sm font-bold text-primary">
-                    R$ {salario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-                <Slider
-                  value={[salario]}
-                  onValueChange={([v]) => setSalario(v)}
-                  min={1412}
-                  max={20000}
-                  step={100}
-                  className="w-full"
-                />
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Simulador aberto</p>
+                <h2 className="font-display mt-3 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Uma conta simples, com premissas visíveis.</h2>
               </div>
+              <Calculator className="hidden h-7 w-7 shrink-0 text-primary sm:block" strokeWidth={1.6} />
+            </div>
+
+            <div className="space-y-9">
               <div>
-                <div className="flex justify-between mb-3">
-                  <label className="text-sm font-medium text-foreground">Horas extras mensais</label>
-                  <span className="text-sm font-bold text-primary">{horasExtras} horas</span>
+                <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+                  <label className="text-sm font-semibold text-foreground">Salário base</label>
+                  <span className="font-mono text-sm font-bold tabular-nums text-primary">{currency(salario)}</span>
                 </div>
-                <Slider
-                  value={[horasExtras]}
-                  onValueChange={([v]) => setHorasExtras(v)}
-                  min={0}
-                  max={60}
-                  step={1}
-                  className="w-full"
-                />
+                <Slider value={[salario]} onValueChange={([value]) => setSalario(value)} min={1412} max={20000} step={100} />
+                <div className="mt-3 flex justify-between font-mono text-[10px] text-muted-foreground"><span>R$ 1.412</span><span>R$ 20.000</span></div>
+              </div>
+
+              <div>
+                <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+                  <label className="text-sm font-semibold text-foreground">Horas extras no mês</label>
+                  <span className="font-mono text-sm font-bold tabular-nums text-primary">{String(horasExtras).padStart(2, '0')} horas</span>
+                </div>
+                <Slider value={[horasExtras]} onValueChange={([value]) => setHorasExtras(value)} min={0} max={60} step={1} />
+                <div className="mt-3 flex justify-between font-mono text-[10px] text-muted-foreground"><span>0h</span><span>60h</span></div>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground italic leading-relaxed">
-              {LEGAL_COPY.simulatorDisclaimer}
-            </p>
+
+            <p className="mt-9 border-l-2 border-primary/30 pl-4 text-xs leading-6 text-muted-foreground">{LEGAL_COPY.simulatorDisclaimer}</p>
           </div>
 
-          {/* Right — result card */}
-          <div className="flex-1 w-full">
-            <div className="relative overflow-hidden rounded-3xl bg-primary p-6 text-primary-foreground shadow-2xl shadow-primary/20 sm:p-10">
-              <div className="absolute top-0 right-0 p-6 opacity-10">
-                <TrendingUp className="h-20 w-20" />
+          <div className="relative flex flex-col bg-primary p-6 text-primary-foreground sm:p-10 lg:p-12">
+            <div className="absolute inset-0 opacity-[0.06] [background-image:linear-gradient(rgba(255,255,255,.8)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.8)_1px,transparent_1px)] [background-size:32px_32px]" />
+            <div className="relative">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-accent-on-primary">Simulação a 50%</p>
+              <p className="mt-2 text-sm text-white/65">Valor bruto das horas extras informadas</p>
+              <p className="mt-6 break-words font-mono text-4xl font-semibold tracking-[-0.06em] sm:text-5xl">{currency(resultado.total)}</p>
+            </div>
+
+            <div className="relative mt-9 divide-y divide-white/15 border-y border-white/15">
+              <div className="flex items-center justify-between gap-4 py-4">
+                <span className="text-xs text-white/60">Valor da hora-base</span>
+                <span className="font-mono text-sm font-bold">{currency(resultado.valorHora)}</span>
               </div>
-              <p className="text-[11px] font-bold uppercase tracking-widest text-accent-container mb-2">
-                Estimativa de Ganhos
-              </p>
-              <h3 className="mb-6 break-words text-3xl font-extrabold tracking-tighter sm:text-5xl md:text-6xl">
-                R$ {resultado.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </h3>
-              <div className="mb-6 flex items-start gap-2">
-                <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                <span className="text-sm font-semibold text-accent">
-                  + R$ {resultado.diferenca.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} de diferença estimada
-                </span>
+              <div className="flex items-center justify-between gap-4 py-4">
+                <span className="text-xs text-white/60">Parcela adicional de 50%</span>
+                <span className="font-mono text-sm font-bold text-accent-on-primary">{currency(resultado.adicional)}</span>
               </div>
-              <Button
-                className="h-12 w-full rounded-xl bg-accent-container text-base font-bold text-primary transition-colors hover:bg-white"
-                onClick={() => navigate('/auth')}
-              >
-                Simular com meus dados
-                <ChevronRight className="ml-1 h-5 w-5" />
+              <div className="flex items-center justify-between gap-4 py-4">
+                <span className="text-xs text-white/60">Divisor considerado</span>
+                <span className="font-mono text-sm font-bold">220 horas</span>
+              </div>
+            </div>
+
+            <div className="relative mt-auto pt-8">
+              <Button className="h-12 w-full rounded-xl bg-accent text-sm font-bold text-accent-foreground hover:bg-accent/90" onClick={() => navigate('/auth')}>
+                Calcular com minha jornada
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
-              <p className="text-[9px] text-primary-foreground/50 mt-3 text-center">
-                *Valores meramente estimativos.
-              </p>
+              <p className="mt-4 text-center text-xs leading-5 text-white/55">Resultado estimativo. Não representa valor líquido ou direito reconhecido.</p>
             </div>
           </div>
         </motion.div>

@@ -1,51 +1,46 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Star } from 'lucide-react';
+import { Database, Equal, ShieldCheck } from 'lucide-react';
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number = 0) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.12, duration: 0.6, ease: 'easeOut' as const },
-  }),
-};
+const principles = [
+  { icon: Database, title: 'Seus dados como ponto de partida', text: 'O aplicativo organiza os horários e valores que você informa.' },
+  { icon: Equal, title: 'Estimativa, não promessa', text: 'Os cálculos ajudam na conferência pessoal e podem variar conforme regras específicas.' },
+  { icon: ShieldCheck, title: 'Clareza sobre o papel do app', text: 'O Hora Justa não substitui o ponto oficial, holerite ou orientação profissional.' },
+];
 
 const SocialProofSection: React.FC = () => (
-  <section className="py-24 px-6">
-    <div className="max-w-2xl mx-auto text-center">
+  <section className="bg-primary px-4 py-20 text-primary-foreground sm:px-6 sm:py-28">
+    <div className="mx-auto max-w-6xl">
       <motion.div
-        className="flex justify-center mb-6"
-        variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }}
+        className="grid gap-8 border-b border-white/15 pb-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end"
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
       >
-        <div className="flex -space-x-3">
-          {['👩‍💼', '👨‍🔧', '👩‍⚕️', '👨‍💻'].map((e, i) => (
-            <div key={i} className="w-14 h-14 rounded-full bg-surface-low flex items-center justify-center text-2xl shadow-md">{e}</div>
-          ))}
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-accent-on-primary">Transparência por princípio</p>
+          <h2 className="font-display mt-4 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Informação útil começa com contexto.</h2>
         </div>
+        <p className="max-w-xl text-sm leading-7 text-white/70 sm:text-base">Nada de números milagrosos ou promessas automáticas. Você mantém o histórico; o app ajuda a organizar e estimar.</p>
       </motion.div>
 
-      <motion.h2
-        className="text-2xl md:text-3xl font-bold text-foreground mb-4 tracking-tight"
-        variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} custom={1}
-      >
-        Usuários já utilizam o Hora Justa para organizar suas horas.
-      </motion.h2>
-
-      <motion.div
-        className="flex justify-center gap-1 mb-5"
-        variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} custom={2}
-      >
-        {Array(5).fill(0).map((_, i) => (
-          <Star key={i} className="h-5 w-5 fill-primary text-primary" />
+      <div className="grid md:grid-cols-3">
+        {principles.map((principle, index) => (
+          <motion.article
+            key={principle.title}
+            className="border-b border-white/15 py-8 last:border-0 md:border-b-0 md:border-r md:px-7 md:last:border-r-0 md:first:pl-0 md:last:pr-0"
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: index * 0.1, duration: 0.5 }}
+          >
+            <principle.icon className="h-6 w-6 text-accent-on-primary" strokeWidth={1.7} />
+            <h3 className="font-display mt-8 text-xl font-semibold leading-snug">{principle.title}</h3>
+            <p className="mt-3 text-sm leading-6 text-white/65">{principle.text}</p>
+          </motion.article>
         ))}
-      </motion.div>
-
-      <motion.p
-        className="text-base text-muted-foreground italic leading-relaxed max-w-lg mx-auto"
-        variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} custom={3}
-      >
-        "Antes do Hora Justa eu nem sabia que o adicional noturno incidia sobre o descanso semanal. Identifiquei mais de 3 mil reais em diferenças estimadas nos meus registros."
-      </motion.p>
+      </div>
     </div>
   </section>
 );

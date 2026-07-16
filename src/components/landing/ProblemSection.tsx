@@ -1,61 +1,66 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Clock, Moon, CalendarOff } from 'lucide-react';
+import { CalendarDays, Clock4, MoonStar } from 'lucide-react';
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 24 },
-  visible: (i: number = 0) => ({
-    opacity: 1, y: 0,
-    transition: { delay: i * 0.12, duration: 0.6, ease: 'easeOut' as const },
-  }),
-};
-
-const problems = [
+const items = [
   {
-    icon: Clock,
-    title: 'Intervalos Ignorados',
-    text: 'Minutos que somam horas no final do mês e podem não aparecer no seu holerite.',
+    icon: Clock4,
+    number: '01',
+    title: 'Intervalos e minutos',
+    text: 'Pequenas diferenças entre entrada, pausa e saída ficam mais fáceis de conferir quando cada marcação está organizada.',
   },
   {
-    icon: Moon,
-    title: 'Adicional Noturno',
-    text: 'Cálculos complexos que podem gerar inconsistências nos registros de jornada.',
+    icon: MoonStar,
+    number: '02',
+    title: 'Jornadas fora do padrão',
+    text: 'Turnos, adicional noturno e retornos no mesmo dia exigem contexto. O histórico ajuda você a revisar cada período.',
   },
   {
-    icon: CalendarOff,
-    title: 'Feriados e Domingos',
-    text: 'O valor diferenciado que muitas vezes é registrado como hora comum por falhas em sistemas de registro.',
+    icon: CalendarDays,
+    number: '03',
+    title: 'Domingos e feriados',
+    text: 'Datas especiais podem seguir regras diferentes. Registre primeiro e use suas configurações para gerar uma estimativa pessoal.',
   },
 ];
 
 const ProblemSection: React.FC = () => (
-  <section id="problema" className="scroll-mt-20 bg-surface-low py-24">
-    <div className="max-w-5xl mx-auto px-6">
-      <motion.h2
-        className="text-3xl md:text-4xl font-bold text-center text-foreground mb-16 tracking-tight"
-        variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }}
-      >
-        Onde podem ocorrer diferenças nos registros de jornada?
-      </motion.h2>
+  <section id="problema" className="scroll-mt-24 border-y border-border bg-card py-20 sm:py-28">
+    <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="grid gap-10 lg:grid-cols-[0.75fr_1.25fr] lg:gap-20">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-80px' }}
+          transition={{ duration: 0.6 }}
+        >
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Por que manter seu próprio registro</p>
+          <h2 className="font-display mt-4 text-3xl font-semibold leading-tight tracking-[-0.035em] sm:text-4xl">
+            O mês passa rápido. Os detalhes, nem sempre.
+          </h2>
+          <p className="mt-5 max-w-md text-sm leading-7 text-muted-foreground sm:text-base">
+            O Hora Justa funciona como um caderno digital da sua rotina: datas, horários e observações reunidos em um só lugar.
+          </p>
+        </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {problems.map((item, i) => (
-          <motion.div
-            key={i}
-            className="bg-card p-8 rounded-2xl hover:-translate-y-2 transition-transform duration-300"
-            variants={fadeUp}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            custom={i + 1}
-          >
-            <div className="w-12 h-12 rounded-xl bg-accent-container/10 flex items-center justify-center mb-5">
-              <item.icon className="h-5 w-5 text-primary" />
-            </div>
-            <h3 className="text-lg font-bold text-foreground mb-3">{item.title}</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">{item.text}</p>
-          </motion.div>
-        ))}
+        <div className="border-t border-border">
+          {items.map((item, index) => (
+            <motion.article
+              key={item.number}
+              className="grid gap-4 border-b border-border py-7 sm:grid-cols-[3rem_3rem_1fr] sm:items-start sm:gap-5"
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, margin: '-60px' }}
+              transition={{ delay: index * 0.08, duration: 0.5 }}
+            >
+              <span className="font-mono text-xs font-bold text-primary">{item.number}</span>
+              <item.icon className="h-5 w-5 text-primary" strokeWidth={1.8} />
+              <div>
+                <h3 className="font-display text-xl font-semibold tracking-tight text-foreground">{item.title}</h3>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">{item.text}</p>
+              </div>
+            </motion.article>
+          ))}
+        </div>
       </div>
     </div>
   </section>
