@@ -21,9 +21,9 @@ npm run lint
 
 O lint global ainda possui débitos técnicos anteriores. Mudanças novas devem ser validadas também com ESLint focado nos arquivos alterados.
 
-## Administração
+## Painel do Chefe
 
-O dashboard está disponível em `/admin`. A rota do frontend é apenas uma proteção de experiência; a autorização real ocorre nas funções SQL por meio de `public.is_admin()`.
+O dashboard está disponível em `/chefe`, com login dedicado em `/chefe/entrar`. A rota do frontend é apenas uma proteção de experiência; a autorização real ocorre nas funções SQL por meio de `public.is_admin()`.
 
 Após aplicar `20260716000000_admin_dashboard_security.sql`, conceda o primeiro acesso pelo UUID verificado do usuário no SQL Editor do Supabase:
 
