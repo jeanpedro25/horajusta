@@ -1,4 +1,4 @@
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 
 const NotFound = () => {
@@ -9,13 +9,19 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted">
-      <div className="text-center">
+    <div className="flex min-h-screen items-center justify-center bg-muted px-4">
+      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 text-center shadow-xl">
         <h1 className="mb-4 text-4xl font-bold">404</h1>
-        <p className="mb-4 text-xl text-muted-foreground">Oops! Page not found</p>
-        <a href="/" className="text-primary underline hover:text-primary/90">
-          Return to Home
-        </a>
+        <p className="text-xl font-semibold">Página não encontrada</p>
+        <p className="mb-6 mt-2 text-sm text-muted-foreground">O endereço acessado não existe ou foi alterado.</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Link to="/auth" className="flex min-h-11 items-center justify-center rounded-xl border border-border px-4 text-sm font-semibold text-foreground hover:bg-secondary">
+            Entrar no aplicativo
+          </Link>
+          <Link to="/auth?redirect=%2Fadmin" className="flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+            Entrar como admin
+          </Link>
+        </div>
       </div>
     </div>
   );

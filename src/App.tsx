@@ -85,6 +85,10 @@ const App = () => (
             <Routes>
               <Route path="/" element={<HomeRoute />} />
               <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
+              <Route path="/login" element={<Navigate to="/auth" replace />} />
+              <Route path="/entrar" element={<Navigate to="/auth" replace />} />
+              <Route path="/admin/login" element={<Navigate to="/auth?redirect=%2Fadmin" replace />} />
+              <Route path="/admin/entrar" element={<Navigate to="/auth?redirect=%2Fadmin" replace />} />
               <Route path="/aceite-termos" element={<TermsRoute><AceiteTermosPage /></TermsRoute>} />
               <Route path="/termos" element={<TermosUsoPage />} />
               <Route path="/privacidade-publica" element={<PrivacidadePublicaPage />} />
