@@ -454,10 +454,10 @@ const ConfigPage: React.FC = () => {
         {/* Admin */}
         {adminAccess.data && (
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-            <button onClick={() => navigate('/admin')} className="flex w-full items-center gap-2 text-left">
+            <button onClick={() => navigate('/chefe')} className="flex w-full items-center gap-2 text-left">
               <Shield size={16} className="text-primary" />
               <div>
-                <span className="block text-sm font-semibold">Painel administrativo</span>
+                <span className="block text-sm font-semibold">Painel do Chefe</span>
                 <span className="block text-[11px] text-muted-foreground">Indicadores, usuários e operação</span>
               </div>
               <span className="ml-auto text-xs text-muted-foreground">→</span>

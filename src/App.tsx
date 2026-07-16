@@ -55,9 +55,11 @@ const AuthRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session, profile, loading } = useAuth();
   const location = useLocation();
   const requestedRedirect = new URLSearchParams(location.search).get('redirect');
-  const redirect = requestedRedirect?.startsWith('/') && !requestedRedirect.startsWith('//')
-    ? requestedRedirect
-    : null;
+  const redirect = location.pathname === '/chefe/entrar'
+    ? '/chefe'
+    : requestedRedirect?.startsWith('/') && !requestedRedirect.startsWith('//')
+      ? requestedRedirect
+      : null;
   if (loading) return <FullScreenLoader />;
   if (session && (!profile || !(profile as any).aceite_termos)) return <Navigate to="/aceite-termos" replace />;
   if (session && profile?.onboarding_completo) return <Navigate to={redirect || "/app"} replace />;
@@ -87,8 +89,9 @@ const App = () => (
               <Route path="/auth" element={<AuthRoute><AuthPage /></AuthRoute>} />
               <Route path="/login" element={<Navigate to="/auth" replace />} />
               <Route path="/entrar" element={<Navigate to="/auth" replace />} />
-              <Route path="/admin/login" element={<Navigate to="/auth?redirect=%2Fadmin" replace />} />
-              <Route path="/admin/entrar" element={<Navigate to="/auth?redirect=%2Fadmin" replace />} />
+              <Route path="/chefe/entrar" element={<AuthRoute><AuthPage /></AuthRoute>} />
+              <Route path="/admin/login" element={<Navigate to="/chefe/entrar" replace />} />
+              <Route path="/admin/entrar" element={<Navigate to="/chefe/entrar" replace />} />
               <Route path="/aceite-termos" element={<TermsRoute><AceiteTermosPage /></TermsRoute>} />
               <Route path="/termos" element={<TermosUsoPage />} />
               <Route path="/privacidade-publica" element={<PrivacidadePublicaPage />} />
@@ -102,7 +105,8 @@ const App = () => (
               <Route path="/radar" element={<ProtectedRoute><RadarPage /></ProtectedRoute>} />
               <Route path="/rescisao" element={<ProtectedRoute><RescisaoPage /></ProtectedRoute>} />
               <Route path="/fgts" element={<ProtectedRoute><FechamentoMensalPage /></ProtectedRoute>} />
-              <Route path="/admin" element={<AdminRoute><AdminDashboardPage /></AdminRoute>} />
+              <Route path="/chefe" element={<AdminRoute><AdminDashboardPage /></AdminRoute>} />
+              <Route path="/admin" element={<Navigate to="/chefe" replace />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

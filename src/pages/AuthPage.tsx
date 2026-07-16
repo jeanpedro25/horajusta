@@ -29,10 +29,12 @@ const AuthPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const requestedRedirect = new URLSearchParams(location.search).get('redirect');
-  const redirect = requestedRedirect?.startsWith('/') && !requestedRedirect.startsWith('//')
-    ? requestedRedirect
-    : null;
-  const isAdminLogin = redirect === '/admin';
+  const redirect = location.pathname === '/chefe/entrar'
+    ? '/chefe'
+    : requestedRedirect?.startsWith('/') && !requestedRedirect.startsWith('//')
+      ? requestedRedirect
+      : null;
+  const isChiefLogin = redirect === '/chefe';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,9 +120,9 @@ const AuthPage: React.FC = () => {
           </span>
         </div>
       </div>
-      {isAdminLogin && (
+      {isChiefLogin && (
         <div className="mb-4 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-accent-container">
-          Acesso administrativo
+          Acesso do Chefe
         </div>
       )}
 

@@ -18,8 +18,8 @@ const NotFound = () => {
           <Link to="/auth" className="flex min-h-11 items-center justify-center rounded-xl border border-border px-4 text-sm font-semibold text-foreground hover:bg-secondary">
             Entrar no aplicativo
           </Link>
-          <Link to="/auth?redirect=%2Fadmin" className="flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
-            Entrar como admin
+          <Link to="/chefe/entrar" className="flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+            Entrar como chefe
           </Link>
         </div>
       </div>

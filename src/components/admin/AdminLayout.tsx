@@ -52,7 +52,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-white/10 bg-slate-950/90 px-4 py-3 backdrop-blur-xl lg:hidden">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-5 w-5 text-cyan-300" />
-          <span className="font-semibold">Hora Justa Admin</span>
+          <span className="font-semibold">Painel do Chefe</span>
         </div>
         <Button size="sm" variant="ghost" className="text-slate-300" onClick={() => navigate('/app')}>
           <ArrowLeft className="mr-1 h-4 w-4" /> App

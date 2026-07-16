@@ -56,7 +56,7 @@ export default function AdminDashboardPage() {
               <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">
                 <ShieldCheck size={15} /> Operação Hora Justa
               </div>
-              <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Painel administrativo</h1>
+              <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Painel do Chefe</h1>
               <p className="mt-2 max-w-2xl text-sm text-slate-400">
                 Acompanhe crescimento, utilização e planos sem expor dados trabalhistas sensíveis.
               </p>
