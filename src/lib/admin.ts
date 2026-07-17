@@ -16,6 +16,11 @@ export interface AdminActivityPoint {
   users: number;
 }
 
+export interface AdminSignupPoint {
+  day: string;
+  count: number;
+}
+
 export interface AdminDashboardSnapshot {
   totalUsers: number;
   newUsers30d: number;
@@ -45,6 +50,23 @@ export interface AdminUser {
   total_count: number;
 }
 
+export interface AdminUserDetail {
+  id: string;
+  nome: string | null;
+  email: string | null;
+  empresa: string | null;
+  plano: string | null;
+  is_pro: boolean;
+  subscription_status: string;
+  plano_vencimento: string | null;
+  onboarding_completo: boolean;
+  created_at: string | null;
+  data_admissao: string | null;
+  total_marcacoes: number;
+  last_activity: string | null;
+  providers: string[] | null;
+}
+
 function assertData<T>(data: unknown, error: RpcError | null): T {
   if (error) throw new Error(error.message);
   return data as T;
@@ -66,5 +88,17 @@ export async function getAdminUsers(search: string, limit: number, offset: numbe
     page_limit: limit,
     page_offset: offset,
   });
-  return assertData<AdminUser[]>(data, error);
+  const rows = assertData<AdminUser[]>(data, error);
+  return Array.isArray(rows) ? rows : [];
+}
+
+export async function getAdminUserDetail(userId: string): Promise<AdminUserDetail> {
+  const { data, error } = await rpc('admin_get_user', { target_user_id: userId });
+  return assertData<AdminUserDetail>(data, error);
+}
+
+export async function getAdminSignupTrend(daysBack = 30): Promise<AdminSignupPoint[]> {
+  const { data, error } = await rpc('admin_signup_trend', { days_back: daysBack });
+  const rows = assertData<AdminSignupPoint[]>(data, error);
+  return Array.isArray(rows) ? rows : [];
 }
