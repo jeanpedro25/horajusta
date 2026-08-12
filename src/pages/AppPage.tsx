@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency, calcValorHoraExtra } from '@/lib/formatters';
 import { horaLocalAgora } from '@/lib/dataHora';
+import { fusoLocal } from '@/lib/dataHora';
 import {
   buscarMarcacoesDia, calcularJornada, proximoTipoAvancado, registrarMarcacao,
   getEstadoJornada, formatarDuracaoJornada, formatarHoraLocal,
@@ -25,7 +26,10 @@ import { CheckCircle2, Clock, Settings, Calculator, CalendarRange, CreditCard, S
 import TrialBanner from '@/components/TrialBanner';
 
 function getGreeting(): string {
-  const h = new Date().getHours();
+  const h = parseInt(
+    new Date().toLocaleTimeString('en-US', { hour: '2-digit', hour12: false, timeZone: fusoLocal }),
+    10,
+  );
   if (h < 6) return 'Boa madrugada';
   if (h < 12) return 'Bom dia';
   if (h < 18) return 'Boa tarde';
@@ -42,6 +46,8 @@ const AppPage: React.FC = () => {
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [isDiaFolga, setIsDiaFolga] = useState(false);
   const [timerStr, setTimerStr] = useState('00:00:00');
+  // Ref-based lock prevents duplicate submissions from rapid clicks or multiple tabs
+  const marcacaoEmAndamento = useRef(false);
 
   const today = hojeLocal();
   const p = profile as any;
@@ -147,9 +153,14 @@ const AppPage: React.FC = () => {
 
   const handleMarcacao = async (tipo: typeof proximo.tipo) => {
     if (!user) return;
+    // Prevent duplicate submissions from double-click or concurrent tabs
+    if (marcacaoEmAndamento.current) return;
+    marcacaoEmAndamento.current = true;
+
     const validacao = validarProximaMarcacao(marcacoes, tipo);
     if (!validacao.valido) {
       toast({ title: 'Marcação inválida', description: validacao.erro, variant: 'destructive' });
+      marcacaoEmAndamento.current = false;
       return;
     }
 
@@ -172,8 +183,10 @@ const AppPage: React.FC = () => {
       }
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+      marcacaoEmAndamento.current = false;
     }
-    setLoading(false);
   };
 
   const getButtonStyle = (cor: string) => {

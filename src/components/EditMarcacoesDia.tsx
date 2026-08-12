@@ -61,8 +61,12 @@ const EditMarcacoesDia: React.FC<EditMarcacoesDiaProps> = ({ open, onClose, data
 
   const fetchMarcacoes = async () => {
     if (!user || !data) return;
-    const m = await buscarMarcacoesDia(user.id, data);
-    setMarcacoes(m);
+    try {
+      const m = await buscarMarcacoesDia(user.id, data);
+      setMarcacoes(m);
+    } catch (err: any) {
+      toast({ title: 'Erro ao carregar marcações', description: err.message, variant: 'destructive' });
+    }
   };
 
   useEffect(() => {
@@ -146,11 +150,31 @@ const EditMarcacoesDia: React.FC<EditMarcacoesDiaProps> = ({ open, onClose, data
   const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
   const dateLabel = `${dias[dateObj.getDay()]}, ${dateObj.getDate()} de ${meses[dateObj.getMonth()]}`;
 
+  /**
+   * Parses a HH:MM time string into an ISO timestamp for `data`.
+   * For overnight shifts: if the entered time is earlier than all existing entries
+   * (suggesting the next day), we increment the date by 1.
+   */
   const safeParseTime = (timeStr: string): string | null => {
     if (!timeStr || !timeStr.match(/^\d{2}:\d{2}/)) return null;
     const t = timeStr.length === 5 ? `${timeStr}:00` : timeStr;
+
+    // Try the given date first
     const d = new Date(`${data}T${t}`);
     if (isNaN(d.getTime())) return null;
+
+    // Overnight detection: if all existing entries are from the base day and
+    // the new time is < the last entry's time, it likely belongs to the next day.
+    if (marcacoes.length > 0) {
+      const lastTs = new Date(marcacoes[marcacoes.length - 1].horario).getTime();
+      if (d.getTime() < lastTs) {
+        // Advance by 1 day
+        const nextDay = new Date(d);
+        nextDay.setDate(nextDay.getDate() + 1);
+        return nextDay.toISOString();
+      }
+    }
+
     return d.toISOString();
   };
 
@@ -172,8 +196,9 @@ const EditMarcacoesDia: React.FC<EditMarcacoesDiaProps> = ({ open, onClose, data
       onSaved();
     } catch (err: any) {
       toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleEditMarcacao = async (id: string) => {

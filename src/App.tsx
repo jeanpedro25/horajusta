@@ -29,7 +29,10 @@ const AdminDashboardPage = lazy(() => import("./pages/admin/AdminDashboardPage")
 
 const FullScreenLoader = () => (
   <div className="min-h-screen bg-background flex items-center justify-center">
-    <p className="text-muted-foreground">Carregando...</p>
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+      <p className="text-sm text-muted-foreground">Carregando...</p>
+    </div>
   </div>
 );
 

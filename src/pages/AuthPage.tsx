@@ -32,6 +32,33 @@ const AuthPage: React.FC = () => {
       : null;
   const isChiefLogin = redirect === '/chefe';
 
+  // ── Password reset state ──────────────────────────────────────────
+  const [showReset, setShowReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetEmail) return;
+    setResetLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+      if (error) throw error;
+      setResetSent(true);
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao enviar',
+        description: error.message || 'Não foi possível enviar o email.',
+        variant: 'destructive',
+      });
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
@@ -86,21 +113,82 @@ const AuthPage: React.FC = () => {
         if (error) throw error;
         return;
       }
-
-      const result = await lovable.auth.signInWithOAuth('google', {
-        redirect_uri: redirectTo,
-      });
-      if (result.error) {
-        toast({ title: 'Erro', description: 'Não foi possível entrar com Google.', variant: 'destructive' });
-        return;
-      }
-      if (result.redirected) return;
     } catch (error: any) {
       toast({ title: 'Erro', description: error.message || 'Algo deu errado.', variant: 'destructive' });
     } finally {
       setGoogleLoading(false);
     }
   };
+
+  // ── Password reset screen ─────────────────────────────────────────
+  if (showReset) {
+    return (
+      <div className="min-h-screen bg-primary flex flex-col items-center justify-center px-4">
+        <div className="flex items-center gap-3 mb-6">
+          <HoraJustaLogo size={40} />
+          <span className="text-primary-foreground text-xl font-bold">Hora Justa</span>
+        </div>
+
+        <div className="bg-card rounded-2xl p-7 w-full max-w-[400px] shadow-2xl">
+          {resetSent ? (
+            <div className="text-center space-y-4">
+              <div className="text-4xl">📬</div>
+              <h2 className="text-lg font-bold">Email enviado!</h2>
+              <p className="text-sm text-muted-foreground">
+                Enviamos um link para <strong>{resetEmail}</strong>. Verifique sua caixa de entrada e siga as instruções.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Não recebeu? Verifique o spam ou aguarde alguns minutos.
+              </p>
+              <Button
+                className="w-full rounded-xl h-12"
+                onClick={() => { setShowReset(false); setResetSent(false); setResetEmail(''); }}
+              >
+                Voltar ao login
+              </Button>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowReset(false)}
+                className="text-xs text-muted-foreground hover:underline mb-4 flex items-center gap-1"
+              >
+                ← Voltar
+              </button>
+              <h2 className="text-lg font-bold mb-1">Redefinir senha</h2>
+              <p className="text-sm text-muted-foreground mb-5">
+                Digite seu email e enviaremos um link para redefinir sua senha.
+              </p>
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="reset-email" className="text-sm font-medium text-foreground">
+                    Email
+                  </label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="nome@exemplo.com"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    required
+                    className="rounded-xl h-12"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="w-full bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl h-12 text-base font-semibold"
+                >
+                  {resetLoading ? 'Enviando...' : 'Enviar link de redefinição'}
+                </Button>
+              </form>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-primary flex flex-col items-center justify-center px-4">
@@ -143,8 +231,9 @@ const AuthPage: React.FC = () => {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Email</label>
+            <label htmlFor="auth-email" className="text-sm font-medium text-foreground">Email</label>
             <Input
+              id="auth-email"
               type="email"
               placeholder="nome@exemplo.com"
               value={email}
@@ -155,14 +244,19 @@ const AuthPage: React.FC = () => {
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-foreground">Senha</label>
+              <label htmlFor="auth-password" className="text-sm font-medium text-foreground">Senha</label>
               {tab === 'login' && (
-                <button type="button" className="text-xs text-accent hover:underline">
+                <button
+                  type="button"
+                  onClick={() => { setShowReset(true); setResetEmail(email); }}
+                  className="text-xs text-accent hover:underline"
+                >
                   Esqueceu a senha?
                 </button>
               )}
             </div>
             <Input
+              id="auth-password"
               type="password"
               placeholder="••••••••"
               value={password}

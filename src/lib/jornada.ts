@@ -67,7 +67,7 @@ export function hojeLocal(): string {
 // ─── BUSCAR MARCAÇÕES DO DIA ────────────────────
 
 export async function buscarMarcacoesDia(userId: string, data: string): Promise<Marcacao[]> {
-  const { data: marcacoes } = await supabase
+  const { data: marcacoes, error } = await supabase
     .from('marcacoes_ponto')
     .select('*')
     .eq('user_id', userId)
@@ -75,6 +75,7 @@ export async function buscarMarcacoesDia(userId: string, data: string): Promise<
     .is('deleted_at', null)
     .neq('origem', 'importacao_automatica')
     .order('horario', { ascending: true });
+  if (error) throw new Error(`Erro ao buscar marcações: ${error.message}`);
   return (marcacoes as Marcacao[]) || [];
 }
 
@@ -145,7 +146,7 @@ export function calcularJornada(marcacoes: Marcacao[], cargaDiariaMin?: number):
     }
   }
 
-  // Only count as "em andamento" if it's today
+  // Only add partial period if it's today AND still in progress
   const ehHoje = marcacoes.length > 0 && marcacoes[0].data === hojeLocal();
   const emAndamento = inicioAtual !== null && ehHoje;
   if (emAndamento && inicioAtual) {
@@ -154,8 +155,8 @@ export function calcularJornada(marcacoes: Marcacao[], cargaDiariaMin?: number):
     totalTrabalhado += minutosParcial;
   }
 
-  // If in interval (saida_intervalo without volta)
-  const emIntervalo = saidaIntervalo !== null && !emAndamento && ehHoje;
+  // Em intervalo: waiting for volta_intervalo (only relevant for today)
+  const emIntervalo = saidaIntervalo !== null && ehHoje;
 
   const carga = cargaDiariaMin ?? 0;
   const horaExtraMin = carga > 0 ? Math.max(0, totalTrabalhado - carga) : 0;
