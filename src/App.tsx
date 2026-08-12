@@ -36,9 +36,36 @@ const FullScreenLoader = () => (
   </div>
 );
 
+const NetworkErrorFallback = () => (
+  <div className="min-h-screen bg-background flex items-center justify-center px-6">
+    <div className="flex flex-col items-center gap-4 max-w-sm text-center">
+      <div className="text-4xl">⚠️</div>
+      <h2 className="text-lg font-bold">Sem conexão com o servidor</h2>
+      <p className="text-sm text-muted-foreground">
+        Não foi possível conectar ao serviço. Verifique sua internet e tente novamente.
+      </p>
+      <button
+        onClick={() => window.location.reload()}
+        className="mt-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors"
+      >
+        Tentar novamente
+      </button>
+    </div>
+  </div>
+);
+
 const HomeRoute: React.FC = () => {
   const { session, profile, loading } = useAuth();
+  const [timedOut, setTimedOut] = React.useState(false);
 
+  React.useEffect(() => {
+    if (!loading) return;
+    // If still loading after 10s, Supabase is likely unreachable
+    const t = window.setTimeout(() => setTimedOut(true), 10_000);
+    return () => window.clearTimeout(t);
+  }, [loading]);
+
+  if (timedOut && loading) return <NetworkErrorFallback />;
   if (loading) return <FullScreenLoader />;
   if (!session) return <LandingPage />;
   if (!profile || !(profile as any).aceite_termos) return <Navigate to="/aceite-termos" replace />;
@@ -48,6 +75,15 @@ const HomeRoute: React.FC = () => {
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; skipOnboardingCheck?: boolean }> = ({ children, skipOnboardingCheck }) => {
   const { session, profile, loading } = useAuth();
+  const [timedOut, setTimedOut] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!loading) return;
+    const t = window.setTimeout(() => setTimedOut(true), 10_000);
+    return () => window.clearTimeout(t);
+  }, [loading]);
+
+  if (timedOut && loading) return <NetworkErrorFallback />;
   if (loading) return <FullScreenLoader />;
   if (!session) return <Navigate to="/auth" replace />;
   if (!profile || !(profile as any).aceite_termos) return <Navigate to="/aceite-termos" replace />;
