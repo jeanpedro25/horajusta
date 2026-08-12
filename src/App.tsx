@@ -1,4 +1,4 @@
-import { Fragment, lazy, Suspense } from "react";
+import React, { Fragment, lazy, Suspense } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
