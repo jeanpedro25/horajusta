@@ -24,6 +24,13 @@
 - **Ainda bloqueia lançamento:** Supabase Preview está vazio; migrations, políticas/RLS e funções remotas não foram aplicadas/testadas. OAuth, envio/validação de e-mail, armazenamento de arquivos, conta admin/MFA e compra/webhook Mercado Pago em sandbox não foram validados ponta a ponta. Termos/privacidade seguem dependendo de revisão responsável, inclusive retenção de dados do webhook e canal de contato.
 - A produção segue na versão anterior. Não fazer merge/publicação até os portões do roteiro seguro para o Preview serem aprovados.
 
+### Configuração assistida do Supabase Preview (2026-09-28)
+
+- No projeto Supabase `hora-justa-preview` (`ipvucliezhhzhrwkxdcu`), o Site URL foi alterado de `http://localhost:3000` para o domínio estável Vercel da branch `https://horajusta-git-hora-justa-preview-jeanpedro203025-4466s-projects.vercel.app`; a allowlist contém somente o callback exato `/auth`, sem wildcard. Confirmado após recarregar a tela.
+- Segredos não confidenciais do Preview configurados: `APP_URL` com a origem acima e `MP_CHECKOUT_MODE=sandbox`. Nenhum token do Mercado Pago foi fornecido/configurado.
+- Auth mostra Email habilitado, novos cadastros permitidos e confirmação de e-mail exigida; Google permanece desabilitado. Não há SMTP próprio nem credenciais OAuth Google configuradas.
+- Edge Functions e migrations continuam ausentes no Supabase Preview. Portanto, o domínio/login não provam cadastro persistente nem transação: não criar contas de usuário real, não aceitar compra e não iniciar venda antes de implantar/reconciliar schema/funções e concluir testes de Sandbox.
+
 ### Progresso após autorização do proprietário (2026-09-28)
 
 - Projeto `CLASSIFICADOS DESEJOS` (`rhsserqlbyyjgglcrwva`) foi **pausado, não excluído**, com autorização específica. O painel informa que pode ser retomado por até um ano; enquanto pausado, o serviço fica indisponível.
