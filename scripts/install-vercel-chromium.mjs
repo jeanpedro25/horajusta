@@ -6,7 +6,7 @@ if (process.env.VERCEL !== '1') {
   process.exit(0);
 }
 
-const playwrightCli = fileURLToPath(import.meta.resolve('playwright/cli'));
+const playwrightCli = fileURLToPath(import.meta.resolve('@playwright/test/cli'));
 execFileSync(process.execPath, [playwrightCli, 'install', 'chromium', '--only-shell'], {
   stdio: 'inherit',
 });
