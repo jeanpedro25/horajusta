@@ -14,6 +14,16 @@
 
 **Decisão naquele ponto da checagem:** não havia ambiente isolado; a atualização abaixo registra sua criação posterior e o estado atual dos portões.
 
+### Revisão local solicitada (2026-09-28)
+
+- Branch isolada `hora-justa-preview`; produção continua no domínio principal e não foi alterada.
+- Prévia Vercel do commit `29f8b6f` está pronta. Landing, `/termos` e `/privacidade-publica` responderam com conteúdo/títulos próprios; a revisão local ainda é a fonte de validação do build (na Vercel o prerender Playwright é ignorado porque o builder não dispõe das bibliotecas nativas do Chromium).
+- Corrigido `tsconfig.app.json`: tipos Node disponibilizados, testes excluídos do typecheck da aplicação e ES2022 habilitado para `Array.at`. Corrigido mapeamento de `marcacoes_ponto.tipo` e colunas anuláveis em `FechamentoMensalPage`. `npx tsc -p tsconfig.app.json --noEmit` passou.
+- Validação concluída: 173 testes Vitest em 44 arquivos; 3 testes E2E Playwright (mobile, desktop e navegação até cadastro); typecheck E2E; lint (0 erros, 8 avisos de Fast Refresh em componentes UI/Contexto); `npm audit --omit=dev` sem vulnerabilidades; `git diff --check` limpo.
+- E2E precisou de `PLAYWRIGHT_PORT=4174` porque um servidor preexistente, alheio a esta tarefa, ocupa a porta padrão 4173; esse processo foi preservado.
+- **Ainda bloqueia lançamento:** Supabase Preview está vazio; migrations, políticas/RLS e funções remotas não foram aplicadas/testadas. OAuth, envio/validação de e-mail, armazenamento de arquivos, conta admin/MFA e compra/webhook Mercado Pago em sandbox não foram validados ponta a ponta. Termos/privacidade seguem dependendo de revisão responsável, inclusive retenção de dados do webhook e canal de contato.
+- A produção segue na versão anterior. Não fazer merge/publicação até os portões do roteiro seguro para o Preview serem aprovados.
+
 ### Progresso após autorização do proprietário (2026-09-28)
 
 - Projeto `CLASSIFICADOS DESEJOS` (`rhsserqlbyyjgglcrwva`) foi **pausado, não excluído**, com autorização específica. O painel informa que pode ser retomado por até um ano; enquanto pausado, o serviço fica indisponível.

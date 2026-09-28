@@ -123,7 +123,13 @@ const FechamentoMensalPage: React.FC = () => {
     setFeriadosLocais(ferData || []);
 
     // Calculate per month
-    const marcacoes: Marcacao[] = marcData || [];
+    const marcacoes: Marcacao[] = (marcData || []).map((marcacao) => ({
+      ...marcacao,
+      tipo: marcacao.tipo as Marcacao['tipo'],
+      origem: marcacao.origem ?? 'manual',
+      created_at: marcacao.created_at ?? '',
+      deleted_at: marcacao.deleted_at ?? null,
+    }));
     const byMonth = new Map<string, Marcacao[]>();
     marcacoes.forEach(m => {
       const mes = m.data.slice(0, 7);
