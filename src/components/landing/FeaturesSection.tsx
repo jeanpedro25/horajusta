@@ -24,7 +24,7 @@ const featureGroups = [
   {
     icon: WalletCards,
     title: 'Salário estimado',
-    text: 'Acompanhe horas extras, INSS, IRRF, benefícios, descontos e valor líquido estimado.',
+    text: 'Acompanhe horas extras e veja uma estimativa de salário líquido com INSS, IRRF, benefícios e descontos informados.',
   },
   {
     icon: Landmark,
@@ -39,7 +39,7 @@ const featureGroups = [
   {
     icon: Palmtree,
     title: 'Férias e feriados',
-    text: 'Organize períodos de férias e considere feriados nacionais, estaduais e municipais.',
+    text: 'Organize férias, consulte feriados nacionais automáticos e cadastre os feriados da sua cidade ou estado.',
   },
   {
     icon: FileText,
@@ -50,7 +50,7 @@ const featureGroups = [
 
 const advancedTools = [
   { icon: CalendarCheck, eyebrow: 'Mês a mês', title: 'Fechamento de horas extras', text: 'Marque o mês como pago ou não pago, inclua observações e acompanhe o acumulado para sua conferência.' },
-  { icon: Landmark, eyebrow: 'Patrimônio do trabalhador', title: 'Estimativa de FGTS', text: 'Visualize depósitos mensais estimados, tempo de serviço e referência da multa conforme os dados informados.' },
+  { icon: Landmark, eyebrow: 'Patrimônio do trabalhador', title: 'Estimativa de FGTS', text: 'Visualize depósitos mensais estimados e tempo de serviço; informe o saldo real para aproximar a simulação de rescisão.' },
   { icon: Calculator, eyebrow: 'Planejamento', title: 'Simulador de rescisão', text: 'Simule cenários de desligamento com saldo de salário, 13º, férias, aviso, FGTS e descontos estimados.' },
 ];
 
@@ -113,17 +113,18 @@ const FeaturesSection: React.FC = () => (
             <div className="mt-8 flex flex-wrap gap-2">
               {['Jornada acima de 10h', 'Semana acima de 44h', 'Intervalo reduzido', 'Feriado trabalhado'].map(item => <span key={item} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[10px] text-white/75">{item}</span>)}
             </div>
-            <p className="mt-7 text-[10px] leading-5 text-white/40">Análise automatizada e informativa. Não constitui parecer jurídico.</p>
+            <p className="mt-7 text-xs leading-5 text-white/70">Prévia demonstrativa, com dados fictícios. Os alertas dependem dos registros e das configurações informados; são informativos e não constituem parecer jurídico.</p>
           </div>
         </motion.div>
 
         <motion.div className="relative flex items-center justify-center bg-white/[0.045] p-5 sm:p-10" initial={{ opacity: 0, x: 24 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.12 }}>
           <div className="w-full max-w-lg space-y-3">
+            <p className="text-center text-[9px] font-bold uppercase tracking-[0.16em] text-white/75">Prévia do Radar · dados ilustrativos</p>
             <motion.div className="rounded-2xl border border-red-300/20 bg-[#1a3940] p-5 shadow-2xl" whileHover={{ x: -5 }}>
               <div className="flex items-start gap-4"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-400/15 text-red-300"><AlertTriangle className="h-5 w-5" /></span><div><div className="flex flex-wrap items-center gap-2"><strong className="text-sm">Jornada acima de 10 horas</strong><span className="rounded-full bg-red-400/15 px-2 py-0.5 text-[8px] font-bold text-red-200">ATENÇÃO ALTA</span></div><p className="mt-2 text-xs leading-5 text-white/55">Foram encontrados 2 dias que merecem revisão no período selecionado.</p></div></div>
             </motion.div>
             <motion.div className="ml-4 rounded-2xl border border-orange-300/20 bg-[#1a3940] p-5" whileHover={{ x: -5 }}>
-              <div className="flex items-start gap-4"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-400/15 text-orange-200"><CalendarRange className="h-5 w-5" /></span><div><strong className="text-sm">7 dias consecutivos</strong><p className="mt-2 text-xs leading-5 text-white/55">Sequência identificada entre 08 e 14 de julho.</p></div></div>
+              <div className="flex items-start gap-4"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-400/15 text-orange-200"><CalendarRange className="h-5 w-5" /></span><div><strong className="text-sm">7 dias consecutivos</strong><p className="mt-2 text-xs leading-5 text-white/55">Exemplo ilustrativo: sequência entre 8 e 14 de julho de 2025.</p></div></div>
             </motion.div>
             <motion.div className="mr-4 rounded-2xl border border-emerald-300/20 bg-[#1a3940] p-5" whileHover={{ x: -5 }}>
               <div className="flex items-start gap-4"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400/15 text-emerald-200"><RotateCcw className="h-5 w-5" /></span><div><strong className="text-sm">Banco de horas atualizado</strong><p className="mt-2 text-xs leading-5 text-white/55">Saldo calculado a partir dos registros e configurações informadas.</p></div></div>

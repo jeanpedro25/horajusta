@@ -27,7 +27,7 @@ const DeleteAccountModal: React.FC<Props> = ({ open, onOpenChange, onConfirm, de
           <DialogTitle className="text-destructive">Excluir conta</DialogTitle>
           <DialogDescription className="text-sm leading-relaxed">
             <strong>ATENÇÃO: Esta ação é irreversível.</strong><br />
-            Todos os seus dados serão excluídos permanentemente, incluindo registros de ponto, histórico, configurações e alertas.
+            A solicitação excluirá sua conta, registros de jornada e anexos de atestados. A ação é irreversível. No ledger de pagamentos, o campo user_id é desvinculado, mas a referência externa e o payload recebido do Mercado Pago não são apagados automaticamente e podem conter identificadores relacionados à compra; consulte a Política de Privacidade.
           </DialogDescription>
         </DialogHeader>
 

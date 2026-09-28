@@ -20,7 +20,7 @@ const FeriadosLocaisConfig: React.FC = () => {
   const [feriados, setFeriados] = useState<FeriadoLocal[]>([]);
   const [novaData, setNovaData] = useState('');
   const [novoNome, setNovoNome] = useState('');
-  const [novoRecorrente, setNovoRecorrente] = useState(true);
+  const [novoRecorrente, setNovoRecorrente] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
@@ -57,7 +57,7 @@ const FeriadosLocaisConfig: React.FC = () => {
       setFeriados(prev => [...prev, data as FeriadoLocal]);
       setNovaData('');
       setNovoNome('');
-      setNovoRecorrente(true);
+      setNovoRecorrente(false);
       setShowForm(false);
       toast({ title: '✅ Feriado local adicionado' });
     }
@@ -97,7 +97,12 @@ const FeriadosLocaisConfig: React.FC = () => {
 
       {/* Locais do usuário */}
       <div className="space-y-2">
-        <p className="text-xs text-muted-foreground">Feriados da sua cidade ou estado:</p>
+        <div>
+          <p className="text-xs text-muted-foreground">Feriados da sua cidade ou estado:</p>
+          <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+            Datas locais variam. Carnaval e Corpus Christi podem ser pontos facultativos; a Sexta-feira da Paixão depende de regra local. Cadastre apenas os feriados que se aplicam ao seu vínculo.
+          </p>
+        </div>
 
         {feriados.length === 0 && !showForm && (
           <p className="text-xs text-muted-foreground/60 italic">Nenhum feriado local cadastrado</p>
@@ -137,6 +142,9 @@ const FeriadosLocaisConfig: React.FC = () => {
               <Switch checked={novoRecorrente} onCheckedChange={setNovoRecorrente} />
               <span className="text-xs text-muted-foreground">Repete todo ano</span>
             </div>
+            <p className="text-[10px] leading-4 text-muted-foreground">
+              Ative para datas fixas; feriados móveis, como Sexta-feira da Paixão e Corpus Christi, precisam ser cadastrados para cada ano.
+            </p>
             <div className="flex gap-2">
               <Button size="sm" onClick={adicionar} disabled={loading} className="flex-1 h-8 text-xs">
                 Salvar

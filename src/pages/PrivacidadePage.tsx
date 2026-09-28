@@ -15,7 +15,7 @@ const PrivacidadePage: React.FC = () => {
           </div>
 
           <p className="text-sm text-muted-foreground leading-relaxed">
-            O Hora Justa está em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018 – LGPD).
+            Esta política descreve o tratamento de dados pessoais no Hora Justa à luz da Lei Geral de Proteção de Dados (Lei nº 13.709/2018 – LGPD).
           </p>
 
           <div className="space-y-4">
@@ -24,7 +24,7 @@ const PrivacidadePage: React.FC = () => {
               <div>
                 <p className="text-sm font-semibold">Criptografia</p>
                 <p className="text-xs text-muted-foreground">
-                  Seus dados são criptografados em trânsito (TLS/SSL) e em repouso nos nossos servidores cloud seguros.
+                  O acesso e o armazenamento dependem dos controles técnicos dos serviços usados pelo Hora Justa. Os detalhes de criptografia e fornecedores precisam ser confirmados na política pública antes do lançamento.
                 </p>
               </div>
             </div>
@@ -34,7 +34,7 @@ const PrivacidadePage: React.FC = () => {
               <div>
                 <p className="text-sm font-semibold">Seus dados pertencem a você</p>
                 <p className="text-xs text-muted-foreground">
-                  Os dados inseridos são de propriedade exclusiva do usuário. Nenhuma informação é compartilhada com sua empresa empregadora, terceiros ou qualquer outra parte.
+                  Seus registros são usados para fornecer as funções do app. O Hora Justa não vende dados pessoais; prestadores de hospedagem, autenticação e pagamento podem tratar os dados necessários para operar seus serviços.
                 </p>
               </div>
             </div>
@@ -44,7 +44,7 @@ const PrivacidadePage: React.FC = () => {
               <div>
                 <p className="text-sm font-semibold">Transparência total</p>
                 <p className="text-xs text-muted-foreground">
-                  Coletamos apenas os dados que você mesmo insere: nome, horários de trabalho e informações de jornada. Nunca coletamos dados sem seu conhecimento.
+                  O serviço trata dados de conta e os dados de jornada, arquivos e pagamentos que você utiliza. A lista completa, finalidades, prazos e locais de tratamento deve constar na política pública validada antes do lançamento.
                 </p>
               </div>
             </div>
@@ -52,9 +52,9 @@ const PrivacidadePage: React.FC = () => {
             <div className="flex gap-3">
               <Trash2 size={16} className="text-accent shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold">Exclusão garantida</p>
+                <p className="text-sm font-semibold">Solicitações sobre seus dados</p>
                 <p className="text-xs text-muted-foreground">
-                  Você pode exportar ou deletar todos os seus dados a qualquer momento em Configurações. Após solicitação de exclusão, os dados serão removidos em até 30 dias.
+                  Você pode solicitar acesso, correção ou exclusão em Configurações ou pelo contato de suporte. Ao excluir a conta, o campo user_id do ledger de pagamentos é desvinculado, mas a referência externa e o payload recebido do Mercado Pago não são apagados automaticamente pelo código atual e podem conter identificadores relacionados à compra. Ainda não há prazo automático de expurgo definido para esses eventos; outros dados mantidos por prestadores podem seguir prazos próprios.
                 </p>
               </div>
             </div>
@@ -62,9 +62,7 @@ const PrivacidadePage: React.FC = () => {
 
           <div className="bg-accent/5 rounded-lg p-3 border border-accent/20">
             <p className="text-[10px] text-muted-foreground leading-relaxed">
-              Base legal para tratamento de dados: execução de contrato (Art. 7º, V da LGPD). 
-              Utilizamos cookies e analytics exclusivamente para melhoria do serviço. 
-              Contato: contato@horajusta.app
+              As bases legais e os prazos variam conforme a finalidade e devem ser descritos na política pública após validação. Contato: contato@horajusta.app
             </p>
           </div>
         </div>

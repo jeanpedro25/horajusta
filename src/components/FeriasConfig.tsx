@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,16 +10,12 @@ import { Progress } from '@/components/ui/progress';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Palmtree, Plus, Trash2, Pencil, AlertTriangle } from 'lucide-react';
 
-interface Ferias {
-  id: string;
-  data_inicio: string;
-  data_fim: string;
+type Ferias = Omit<Tables<'ferias'>, 'dias_direito' | 'tipo' | 'status' | 'created_at'> & {
   dias_direito: number;
   tipo: string;
   status: string;
-  observacao: string | null;
   created_at: string;
-}
+};
 
 function calcDias(inicio: string, fim: string): number {
   const d1 = new Date(inicio + 'T12:00:00');
@@ -66,8 +63,10 @@ function diasAte(data: string): number {
 
 const FeriasConfig: React.FC = () => {
   const { user, profile } = useAuth();
-  const p = profile as any;
+  const userId = user?.id;
   const [ferias, setFerias] = useState<Ferias[]>([]);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [dataAdmissao, setDataAdmissao] = useState('');
   const [inicio, setInicio] = useState('');
@@ -88,25 +87,39 @@ const FeriasConfig: React.FC = () => {
   const [cancelMotivo, setCancelMotivo] = useState('');
 
   useEffect(() => {
-    if (p?.data_admissao) setDataAdmissao(p.data_admissao);
-  }, [p]);
+    if (profile?.data_admissao) setDataAdmissao(profile.data_admissao);
+  }, [profile?.data_admissao]);
 
-  const fetchFerias = async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from('ferias' as any)
+  const fetchFerias = useCallback(async () => {
+    if (!userId) return;
+    setLoadError(false);
+    const { data, error } = await supabase
+      .from('ferias')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('data_inicio', { ascending: false });
-    setFerias(((data as any as Ferias[]) || []).map(autoStatus));
-  };
+    if (error) {
+      console.error('Falha ao carregar períodos de férias', error);
+      setLoadError(true);
+      return;
+    }
+    const normalized = (data ?? []).map((row): Ferias => ({
+      ...row,
+      dias_direito: row.dias_direito ?? 30,
+      tipo: row.tipo ?? 'normal',
+      status: row.status ?? 'agendada',
+      created_at: row.created_at ?? '',
+    }));
+    setFerias(normalized.map(autoStatus));
+  }, [userId]);
 
-  useEffect(() => { fetchFerias(); }, [user]);
+  useEffect(() => { void fetchFerias(); }, [fetchFerias, reloadNonce]);
 
   const saveAdmissao = async (val: string) => {
     setDataAdmissao(val);
     if (!user || !val) return;
-    await supabase.from('profiles').update({ data_admissao: val } as any).eq('id', user.id);
+    const { error } = await supabase.from('profiles').update({ data_admissao: val }).eq('id', user.id);
+    if (error) toast({ title: 'Erro ao salvar data de admissão', description: error.message, variant: 'destructive' });
   };
 
   const feriasAtivas = ferias.filter(f => f.status !== 'cancelada');
@@ -114,13 +127,24 @@ const FeriasConfig: React.FC = () => {
   const diasAgendados = feriasAtivas.filter(f => f.status === 'agendada' || f.status === 'ativa').reduce((acc, f) => acc + calcDias(f.data_inicio, f.data_fim), 0);
   const diasRestantes = Math.max(0, 30 - diasTirados - diasAgendados);
 
-  const validarPeriodo = (ini: string, fi: string, editandoId?: string) => {
+  const validarPeriodo = (ini: string, fi: string, editandoId?: string, tipoPeriodo = tipo) => {
     const erros: string[] = [];
     const avisos: string[] = [];
     const dias = calcDias(ini, fi);
 
     if (dias < 1) erros.push('Data de fim deve ser após a data de início.');
-    if (dias < 14) erros.push(`Mínimo de 14 dias por período (Art. 134 CLT). Selecionado: ${dias} dias.`);
+    if (tipoPeriodo === 'fracionada' && dias < 5) {
+      erros.push(`Cada período fracionado deve ter ao menos 5 dias corridos. Selecionado: ${dias} dias.`);
+    } else if (tipoPeriodo !== 'fracionada' && dias < 14) {
+      erros.push(`Este período deve ter ao menos 14 dias corridos. Selecionado: ${dias} dias.`);
+    }
+
+    const outroPeriodoPrincipal = feriasAtivas.some(f =>
+      f.id !== editandoId && calcDias(f.data_inicio, f.data_fim) >= 14
+    );
+    if (tipoPeriodo === 'fracionada' && dias >= 5 && dias < 14 && !outroPeriodoPrincipal) {
+      avisos.push('No fracionamento, um dos períodos deve ter ao menos 14 dias corridos; confirme também a concordância do empregado.');
+    }
     
     const disponivelParaEste = editandoId
       ? diasRestantes + calcDias(ferias.find(f => f.id === editandoId)!.data_inicio, ferias.find(f => f.id === editandoId)!.data_fim)
@@ -149,11 +173,11 @@ const FeriasConfig: React.FC = () => {
       toast({ title: '⚠️ Atenção', description: v.avisos.join(' ') });
     }
     setSaving(true);
-    const { error } = await supabase.from('ferias' as any).insert({
+    const { error } = await supabase.from('ferias').insert({
       user_id: user.id, data_inicio: inicio, data_fim: fim,
       dias_direito: 30, tipo, status: 'agendada',
       observacao: obs.trim() || null,
-    } as any);
+    });
     if (error) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     } else {
@@ -180,10 +204,10 @@ const FeriasConfig: React.FC = () => {
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from('ferias' as any).update({
+    const { error } = await supabase.from('ferias').update({
       data_inicio: editInicio, data_fim: editFim, tipo: editTipo,
       observacao: editObs.trim() || null,
-    } as any).eq('id', editFerias.id);
+    }).eq('id', editFerias.id);
     if (error) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     } else {
@@ -200,9 +224,9 @@ const FeriasConfig: React.FC = () => {
     const obsCancel = cancelMotivo.trim()
       ? `CANCELADA: ${cancelMotivo.trim()}${cancelFerias.observacao ? ` | ${cancelFerias.observacao}` : ''}`
       : cancelFerias.observacao;
-    const { error } = await supabase.from('ferias' as any).update({
+    const { error } = await supabase.from('ferias').update({
       status: 'cancelada', observacao: obsCancel,
-    } as any).eq('id', cancelFerias.id);
+    }).eq('id', cancelFerias.id);
     if (error) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     } else {
@@ -251,8 +275,8 @@ const FeriasConfig: React.FC = () => {
 
       {/* Data de admissão */}
       <div>
-        <label className="text-xs text-muted-foreground mb-1 block">Data de admissão</label>
-        <Input type="date" value={dataAdmissao} onChange={(e) => saveAdmissao(e.target.value)} className="rounded-xl" />
+        <label htmlFor="ferias-data-admissao" className="text-xs text-muted-foreground mb-1 block">Data de admissão</label>
+        <Input id="ferias-data-admissao" type="date" value={dataAdmissao} onChange={(e) => saveAdmissao(e.target.value)} className="rounded-xl" />
         <p className="text-[10px] text-muted-foreground mt-1">Necessária para calcular período aquisitivo e vencimento.</p>
       </div>
 
@@ -287,12 +311,12 @@ const FeriasConfig: React.FC = () => {
           <p className="text-xs font-semibold">Agendar período de férias</p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Início</label>
-              <Input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className="rounded-xl" />
+              <label htmlFor="ferias-inicio" className="text-xs text-muted-foreground mb-1 block">Início</label>
+              <Input id="ferias-inicio" type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} className="rounded-xl" />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Fim</label>
-              <Input type="date" value={fim} onChange={(e) => setFim(e.target.value)} className="rounded-xl" />
+              <label htmlFor="ferias-fim" className="text-xs text-muted-foreground mb-1 block">Fim</label>
+              <Input id="ferias-fim" type="date" value={fim} onChange={(e) => setFim(e.target.value)} className="rounded-xl" />
             </div>
           </div>
           {inicio && fim && calcDias(inicio, fim) > 0 && (
@@ -307,7 +331,7 @@ const FeriasConfig: React.FC = () => {
               </label>
               <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                 <input type="radio" name="tipoFerias" value="fracionada" checked={tipo === 'fracionada'} onChange={() => setTipo('fracionada')} className="accent-accent" />
-                Fracionadas (mín. 14 dias)
+                Fracionadas (mín. 5 dias)
               </label>
             </div>
           </div>
@@ -339,6 +363,15 @@ const FeriasConfig: React.FC = () => {
         <Button variant="outline" onClick={() => setShowForm(true)} className="w-full rounded-xl gap-2 text-sm">
           <Plus size={14} /> Agendar período de férias
         </Button>
+      )}
+
+      {loadError && (
+        <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200 space-y-2">
+          <p>Não foi possível carregar seus períodos de férias. O saldo pode estar incompleto.</p>
+          <Button type="button" variant="outline" size="sm" onClick={() => setReloadNonce((value) => value + 1)}>
+            Tentar novamente
+          </Button>
+        </div>
       )}
 
       {/* Lista */}
@@ -404,12 +437,12 @@ const FeriasConfig: React.FC = () => {
           <div className="space-y-3 mt-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Início</label>
-                <Input type="date" value={editInicio} onChange={e => setEditInicio(e.target.value)} className="rounded-xl" />
+                <label htmlFor="ferias-editar-inicio" className="text-xs text-muted-foreground mb-1 block">Início</label>
+                <Input id="ferias-editar-inicio" type="date" value={editInicio} onChange={e => setEditInicio(e.target.value)} className="rounded-xl" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Fim</label>
-                <Input type="date" value={editFim} onChange={e => setEditFim(e.target.value)} className="rounded-xl" />
+                <label htmlFor="ferias-editar-fim" className="text-xs text-muted-foreground mb-1 block">Fim</label>
+                <Input id="ferias-editar-fim" type="date" value={editFim} onChange={e => setEditFim(e.target.value)} className="rounded-xl" />
               </div>
             </div>
             {editInicio && editFim && calcDias(editInicio, editFim) > 0 && (
@@ -433,7 +466,7 @@ const FeriasConfig: React.FC = () => {
               <Input value={editObs} onChange={e => setEditObs(e.target.value)} className="rounded-xl" />
             </div>
             {editInicio && editFim && editFerias && (() => {
-              const v = validarPeriodo(editInicio, editFim, editFerias.id);
+              const v = validarPeriodo(editInicio, editFim, editFerias.id, editTipo);
               return (
                 <>
                   {v.erros.map((e, i) => (

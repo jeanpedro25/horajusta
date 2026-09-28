@@ -1,4 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables, TablesInsert } from '@/integrations/supabase/types';
+
+type BancoHorasRow = Tables<'banco_horas'>;
 
 export type ModoTrabalho = 'horas_extras' | 'banco_horas';
 export type RegraConversao = '1x' | '1.5x' | '2x';
@@ -11,17 +14,7 @@ export interface BancoHorasConfig {
   limiteBancoHoras: number | null; // in minutes
 }
 
-export interface BancoHorasEntry {
-  id: string;
-  user_id: string;
-  data: string;
-  tipo: TipoEntrada;
-  minutos: number;
-  expira_em: string;
-  nota: string | null;
-  registro_id: string | null;
-  created_at: string;
-}
+export type BancoHorasEntry = Tables<'banco_horas'>;
 
 export interface BancoHorasSummary {
   saldo: number; // minutes
@@ -43,7 +36,7 @@ export function calcularEntradaBancoHoras(
   diffMinutos: number, // positive = worked more, negative = worked less
   config: BancoHorasConfig,
   registroId?: string,
-): Omit<BancoHorasEntry, 'id' | 'created_at'> | null {
+): Omit<BancoHorasRow, 'id' | 'created_at'> | null {
   if (config.modoTrabalho !== 'banco_horas' || diffMinutos === 0) return null;
 
   const expDate = new Date(data);
@@ -64,7 +57,7 @@ export function calcularEntradaBancoHoras(
 }
 
 export function summarizeBancoHoras(
-  entries: BancoHorasEntry[],
+  entries: BancoHorasRow[],
   salarioBase: number,
   percentualExtra: number,
   now = new Date(),
@@ -102,17 +95,18 @@ export function summarizeBancoHoras(
   return { saldo, aCompensar, expirandoEm10Dias, expirado, estimativaValor };
 }
 
-export async function fetchBancoHorasEntries(userId: string): Promise<BancoHorasEntry[]> {
-  const { data } = await supabase
+export async function fetchBancoHorasEntries(userId: string): Promise<BancoHorasRow[]> {
+  const { data, error } = await supabase
     .from('banco_horas')
     .select('*')
     .eq('user_id', userId)
-    .order('data', { ascending: true }) as any;
+    .order('data', { ascending: true });
+  if (error) throw error;
   return data || [];
 }
 
-export async function insertBancoHorasEntry(entry: Omit<BancoHorasEntry, 'id' | 'created_at'>) {
-  return supabase.from('banco_horas').insert(entry as any);
+export async function insertBancoHorasEntry(entry: Omit<BancoHorasRow, 'id' | 'created_at'>) {
+  return supabase.from('banco_horas').insert(entry satisfies TablesInsert<'banco_horas'>);
 }
 
 export async function marcarFolgaBancoHoras(
@@ -132,7 +126,7 @@ export async function marcarFolgaBancoHoras(
     minutos: minutosDescontar,
     expira_em: expDate.toISOString(),
     nota,
-  } as any);
+  } satisfies TablesInsert<'banco_horas'>);
 }
 
 export function formatMinutosHoras(minutos: number): string {

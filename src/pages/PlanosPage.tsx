@@ -1,19 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlano } from '@/hooks/usePlano';
 import { toast } from '@/hooks/use-toast';
-import { iniciarCheckoutMercadoPago } from '@/lib/payments';
+import { hasPlanAccess, iniciarCheckoutMercadoPago } from '@/lib/payments';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2, Zap, ArrowLeft, Crown, X } from 'lucide-react';
+import {
+  ANNUAL_SAVINGS_CENTS,
+  formatBRLCents,
+  getPlanDurationLabel,
+  PLAN_CATALOG,
+} from '../../supabase/functions/_shared/plan-catalog';
 
 const PLANOS = [
   {
     id: 'pro',
-    nome: 'PRO Mensal',
-    preco: 9.90,
-    precoPor: '/mês',
+    nome: PLAN_CATALOG.pro.name,
+    precoCents: PLAN_CATALOG.pro.amountCents,
+    precoPor: `pagamento único · acesso por ${getPlanDurationLabel('pro')} · sem renovação automática`,
     economia: null,
     destaque: false,
     cor: 'from-accent/20 to-accent/5',
@@ -25,25 +31,20 @@ const PLANOS = [
       'Banco de horas avançado',
       'Fechamento mensal',
       'Rescisão e cálculo trabalhista',
-      'Suporte prioritário',
     ],
   },
   {
     id: 'anual',
-    nome: 'PRO Anual',
-    preco: 89.90,
-    precoPor: '/ano',
-    economia: '🎁 Economize R$28,90 vs mensal',
+    nome: PLAN_CATALOG.anual.name,
+    precoCents: PLAN_CATALOG.anual.amountCents,
+    precoPor: `pagamento único · acesso por ${getPlanDurationLabel('anual')} · sem renovação automática`,
+    economia: `Economize ${formatBRLCents(ANNUAL_SAVINGS_CENTS)} frente a 12 pagamentos mensais`,
     destaque: true,
     cor: 'from-emerald-500/20 to-emerald-500/5',
     corBorda: 'border-emerald-500/40',
     icone: '👑',
     recursos: [
       'Tudo do plano mensal',
-      '12 meses pelo preço de 9',
-      'Acesso antecipado a novidades',
-      'Relatórios históricos ilimitados',
-      'Suporte VIP via WhatsApp',
     ],
   },
 ];
@@ -54,45 +55,83 @@ const PlanosPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState<string | null>(null);
+  const handledPaymentReturn = useRef<string | null>(null);
+  const checkoutInFlight = useRef(false);
 
-  // Detectar retorno do Mercado Pago
+  // A URL de retorno do checkout não confirma a aplicação da licença no banco.
   useEffect(() => {
     const payment = searchParams.get('payment');
     const plano = searchParams.get('plano');
-    if (payment === 'success' && plano) {
-      toast({
-        title: '🎉 Pagamento confirmado!',
-        description: `Plano ${plano === 'anual' ? 'PRO Anual' : 'PRO Mensal'} ativado com sucesso! Aproveite todos os recursos premium.`,
-      });
-      refreshProfile();
-      // Limpar query params
+    const resultKey = `${payment ?? ''}:${plano ?? ''}`;
+    if (!payment || handledPaymentReturn.current === resultKey) return;
+    handledPaymentReturn.current = resultKey;
+
+    if (payment === 'success' && (plano === 'pro' || plano === 'anual')) {
       navigate('/planos', { replace: true });
+      if (!user) {
+        toast({ title: 'Pagamento em verificação', description: 'Entre na mesma conta usada na compra para conferir a ativação. Não faça outra compra enquanto a confirmação é processada.' });
+        return;
+      }
+      void (async () => {
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+          let entitlement = null;
+          try {
+            const { data } = await supabase
+              .from('profiles')
+              .select('plano, plano_vencimento, is_pro, subscription_status')
+              .eq('id', user.id)
+              .maybeSingle();
+            entitlement = data;
+          } catch {
+            // Uma falha transitória de rede não pode transformar o retorno em falsa confirmação.
+          }
+          if (hasPlanAccess(entitlement, plano, new Date())) {
+            try {
+              await refreshProfile();
+            } catch {
+              // O perfil confirmado pelo banco é a fonte da licença; um refresh local
+              // transitório não deve ocultar a confirmação nem sugerir novo pagamento.
+            }
+            toast({ title: 'Acesso PRO ativado', description: 'A confirmação segura chegou e seu plano já está liberado.' });
+            return;
+          }
+          if (attempt < 9) await new Promise((resolve) => window.setTimeout(resolve, 2000));
+        }
+        toast({ title: 'Pagamento em processamento', description: 'Ainda não recebemos a confirmação de ativação. Aguarde um pouco e confira seu plano antes de iniciar outra compra.' });
+      })();
     } else if (payment === 'failure') {
       toast({ title: '❌ Pagamento não concluído', description: 'Tente novamente ou escolha outra forma de pagamento.', variant: 'destructive' });
       navigate('/planos', { replace: true });
     } else if (payment === 'pending') {
-      toast({ title: '⏳ Pagamento pendente', description: 'Assim que confirmado, seu plano será ativado automaticamente.' });
+      toast({ title: '⏳ Pagamento pendente', description: 'O Mercado Pago ainda está confirmando. Não faça outro pagamento; aguarde e confira seu plano novamente em instantes.' });
       navigate('/planos', { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, navigate, refreshProfile, user]);
 
   const handleAssinar = async (planoId: 'pro' | 'anual') => {
+    if (checkoutInFlight.current) return;
     if (!user || !profile) {
       navigate('/auth');
       return;
     }
+    checkoutInFlight.current = true;
     setLoading(planoId);
+    let redirectStarted = false;
     try {
-      const res = await iniciarCheckoutMercadoPago(supabase, planoId, user, profile);
+      const res = await iniciarCheckoutMercadoPago(supabase, planoId);
       if (res.error) throw new Error(res.error);
-      const url = res.init_point || res.sandbox_init_point;
-      if (url) window.location.href = url;
-      else throw new Error('URL de pagamento não retornada.');
+      const url = res.checkout_url;
+      if (!url) throw new Error('URL de pagamento não retornada.');
+      window.location.href = url;
+      redirectStarted = true;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido';
       toast({ title: '❌ Erro ao iniciar pagamento', description: msg, variant: 'destructive' });
     } finally {
-      setLoading(null);
+      if (!redirectStarted) {
+        checkoutInFlight.current = false;
+        setLoading(null);
+      }
     }
   };
 
@@ -103,7 +142,7 @@ const PlanosPage: React.FC = () => {
     <div className="min-h-screen bg-background pb-8">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl bg-secondary flex items-center justify-center">
+        <button type="button" aria-label="Voltar" onClick={() => navigate(-1)} className="h-9 w-9 rounded-xl bg-secondary flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
           <ArrowLeft size={18} />
         </button>
         <div>
@@ -121,6 +160,18 @@ const PlanosPage: React.FC = () => {
           <p className="text-sm text-muted-foreground leading-relaxed">
             Relatórios completos, exportação Excel, banco de horas avançado e muito mais. Tudo para você ter controle total da sua jornada.
           </p>
+        </div>
+
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-center">
+          <p className="text-sm font-bold text-primary">Comece pelo teste PRO grátis</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            Ao criar sua conta, você ganha 7 dias com todos os recursos PRO, sem cartão. Depois, sua conta continua no plano gratuito — sem cobrança automática.
+          </p>
+          {!user && (
+            <Button variant="outline" className="mt-3 h-10 rounded-xl border-primary/30 font-semibold text-primary" onClick={() => navigate('/auth')}>
+              Criar conta e testar grátis
+            </Button>
+          )}
         </div>
 
         {/* Plano atual */}
@@ -158,7 +209,7 @@ const PlanosPage: React.FC = () => {
                   )}
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl font-black">R$ {plano.preco.toFixed(2).replace('.', ',')}</div>
+                  <div className="text-2xl font-black">{formatBRLCents(plano.precoCents)}</div>
                   <div className="text-xs text-muted-foreground">{plano.precoPor}</div>
                 </div>
               </div>
@@ -175,6 +226,7 @@ const PlanosPage: React.FC = () => {
               <Button
                 onClick={() => handleAssinar(plano.id as 'pro' | 'anual')}
                 disabled={!!loading || jaPro}
+                aria-busy={loading === plano.id}
                 className={`w-full h-12 rounded-xl font-bold text-sm ${
                   plano.destaque
                     ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
@@ -182,7 +234,7 @@ const PlanosPage: React.FC = () => {
                 }`}
               >
                 {loading === plano.id ? (
-                  <span className="flex items-center gap-2">⏳ Redirecionando...</span>
+                  <span role="status" aria-live="polite" className="flex items-center gap-2">Abrindo checkout do Mercado Pago… aguarde</span>
                 ) : jaPro ? (
                   '✅ Plano ativo'
                 ) : (
@@ -199,9 +251,12 @@ const PlanosPage: React.FC = () => {
         {/* Plano Free */}
         <div className="bg-card rounded-2xl border border-border p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="font-semibold text-sm">📋 Plano Free (atual de todos)</span>
+            <span className="font-semibold text-sm">📋 Plano gratuito</span>
             <span className="text-xs text-muted-foreground font-bold">R$0</span>
           </div>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Disponível para continuar usando o Hora Justa depois do teste PRO, sem prazo e sem cobrança.
+          </p>
           <ul className="space-y-1.5 text-xs text-muted-foreground">
             {[
               'Registro de ponto com botão',
@@ -232,14 +287,12 @@ const PlanosPage: React.FC = () => {
         {/* Segurança */}
         <div className="text-center space-y-1">
           <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
-            <span>🔒 Pagamento seguro</span>
+            <span>Checkout do Mercado Pago</span>
             <span>•</span>
-            <span>💳 Mercado Pago</span>
-            <span>•</span>
-            <span>🇧🇷 PIX, cartão</span>
+            <span>Opções disponíveis exibidas no checkout</span>
           </div>
           <p className="text-[10px] text-muted-foreground">
-            Cancele quando quiser. Sem multas ou contratos.
+            Pagamento único. Sem renovação automática ou cobrança recorrente.
           </p>
         </div>
 

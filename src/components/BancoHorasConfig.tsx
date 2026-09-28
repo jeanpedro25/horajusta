@@ -36,19 +36,17 @@ const BancoHorasConfig: React.FC<BancoHorasConfigProps> = ({
   modoTrabalho, setModoTrabalho, prazo, setPrazo, conversao, setConversao, limite, setLimite,
 }) => {
   const { user, profile } = useAuth();
-  const p = profile as any;
-
   const [saldoTipo, setSaldoTipo] = useState<'nenhum' | 'positivo' | 'negativo'>('nenhum');
   const [saldoHoras, setSaldoHoras] = useState('');
   const [saldoMinutos, setSaldoMinutos] = useState('');
   const [saldoData, setSaldoData] = useState('');
   const [savingSaldo, setSavingSaldo] = useState(false);
 
-  const cargaDiaria = p?.carga_horaria_diaria ?? 8;
+  const cargaDiaria = profile?.carga_horaria_diaria ?? 8;
 
   useEffect(() => {
-    if (p) {
-      const saldoInicial = p.banco_horas_saldo_inicial ?? 0;
+    if (profile) {
+      const saldoInicial = profile.banco_horas_saldo_inicial ?? 0;
       if (saldoInicial > 0) {
         setSaldoTipo('positivo');
         setSaldoHoras(String(Math.floor(saldoInicial / 60)));
@@ -62,9 +60,9 @@ const BancoHorasConfig: React.FC<BancoHorasConfigProps> = ({
         setSaldoHoras('');
         setSaldoMinutos('');
       }
-      setSaldoData(p.banco_horas_saldo_inicial_data || '');
+      setSaldoData(profile.banco_horas_saldo_inicial_data || '');
     }
-  }, [p]);
+  }, [profile]);
 
   const equivalencia = calcularEquivalenciaDias(
     Number(saldoHoras) || 0,
@@ -80,7 +78,7 @@ const BancoHorasConfig: React.FC<BancoHorasConfigProps> = ({
     const { error } = await supabase.from('profiles').update({
       banco_horas_saldo_inicial: valor,
       banco_horas_saldo_inicial_data: saldoData || null,
-    } as any).eq('id', user.id);
+    }).eq('id', user.id);
     if (error) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     } else {

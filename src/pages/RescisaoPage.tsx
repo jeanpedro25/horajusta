@@ -44,7 +44,7 @@ interface ItemCalculo {
 const RescisaoPage: React.FC = () => {
   const { profile } = useAuth();
   const navigate = useNavigate();
-  const p = profile as any;
+  const p = profile;
 
   const salario = (p?.salario_base as number) ?? 0;
   const dataAdmissaoStr = p?.data_admissao as string | null;
@@ -171,16 +171,16 @@ const RescisaoPage: React.FC = () => {
     items.push({
       label: 'Desconto INSS',
       valor: -inss,
-      descricao: 'Contribuição previdenciária progressiva sobre a base tributável das verbas (tabelas 2024/2025).',
+      descricao: 'Estimativa pela tabela progressiva mensal do INSS de 2026; a incidência pode variar conforme a natureza de cada verba.',
       positivo: false,
     });
 
-    const irrf = calcularIRRFFixaComDependentes(baseTributavel - inss, dependentes);
+    const irrf = calcularIRRFFixaComDependentes(baseTributavel, inss, dependentes);
     if (irrf > 0) {
       items.push({
         label: 'Desconto IRRF',
         valor: -irrf,
-        descricao: `IRRF sobre base após INSS, com dedução por ${dependentes} dependente(s) (tabela 2024/2025).`,
+        descricao: `Estimativa de IRRF com parâmetros mensais de 2026 e ${dependentes} dependente(s); a incidência pode variar conforme a natureza das verbas rescisórias.`,
         positivo: false,
       });
     }

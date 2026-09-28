@@ -36,35 +36,59 @@ const FAIXAS_IRRF = [
   { teto: Infinity, aliquota: 0.275, deduzir: 908.73 },
 ];
 
-export function calcularIRRF(bruto: number, inss: number): number {
-  const base = bruto - inss;
+const DEDUCAO_SIMPLIFICADA_MENSAL = 607.20;
+const LIMITE_REDUCAO_IRRF_INTEGRAL = 5000;
+const LIMITE_REDUCAO_IRRF_PARCIAL = 7350;
+
+function calcularImpostoPelaTabela(base: number): number {
   if (base <= 0) return 0;
 
   for (const faixa of FAIXAS_IRRF) {
     if (base <= faixa.teto) {
-      const imposto = base * faixa.aliquota - faixa.deduzir;
-      return Math.max(0, Math.round(imposto * 100) / 100);
+      return Math.max(0, Math.round((base * faixa.aliquota - faixa.deduzir) * 100) / 100);
     }
   }
   return 0;
 }
 
-/** Dedução por dependente — IRRF mensal (valor vigente em 2026) */
+function aplicarReducaoMensalIRRF(imposto: number, rendimentosTributaveis: number): number {
+  if (rendimentosTributaveis <= LIMITE_REDUCAO_IRRF_INTEGRAL) return 0;
+  if (rendimentosTributaveis > LIMITE_REDUCAO_IRRF_PARCIAL) return imposto;
+
+  const reducao = 978.62 - 0.133145 * rendimentosTributaveis;
+  return Math.max(0, Math.round((imposto - reducao) * 100) / 100);
+}
+
+function calcularIRRFComDeducoesLegaisOuSimplificada(
+  rendimentosTributaveis: number,
+  inss: number,
+  dependentes: number,
+): number {
+  if (!Number.isFinite(rendimentosTributaveis) || !Number.isFinite(inss)) return 0;
+  const deducaoDependentes = Math.max(0, Math.min(Math.floor(dependentes), 99)) * DEDUCAO_DEPENDENTE_IRRF;
+  const deducoesLegais = Math.max(0, inss) + deducaoDependentes;
+  const deducoes = Math.max(deducoesLegais, DEDUCAO_SIMPLIFICADA_MENSAL);
+  const base = Math.max(0, rendimentosTributaveis - deducoes);
+  return aplicarReducaoMensalIRRF(calcularImpostoPelaTabela(base), rendimentosTributaveis);
+}
+
+export function calcularIRRF(bruto: number, inss: number): number {
+  return calcularIRRFComDeducoesLegaisOuSimplificada(bruto, inss, 0);
+}
+
+/** Dedução mensal por dependente no IRRF (valor vigente em 2026). */
 const DEDUCAO_DEPENDENTE_IRRF = 189.59;
 
 /**
- * IRRF sobre base já descontada do INSS, com abatimento por dependentes (dedução legal por dependente).
+ * Estima o IRRF mensal usando a opção mais vantajosa entre deduções legais e desconto simplificado.
+ * A redução gradual de 2026 considera os rendimentos tributáveis, não a base após deduções.
  */
-export function calcularIRRFFixaComDependentes(baseAposInss: number, dependentes: number): number {
-  const dep = Math.max(0, Math.min(dependentes, 99));
-  const base = Math.max(0, baseAposInss - dep * DEDUCAO_DEPENDENTE_IRRF);
-  for (const faixa of FAIXAS_IRRF) {
-    if (base <= faixa.teto) {
-      const imposto = base * faixa.aliquota - faixa.deduzir;
-      return Math.max(0, Math.round(imposto * 100) / 100);
-    }
-  }
-  return 0;
+export function calcularIRRFFixaComDependentes(
+  rendimentosTributaveis: number,
+  inss: number,
+  dependentes: number,
+): number {
+  return calcularIRRFComDeducoesLegaisOuSimplificada(rendimentosTributaveis, inss, dependentes);
 }
 
 export interface DescontosDetalhados {

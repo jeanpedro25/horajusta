@@ -33,7 +33,7 @@ const EditRegistro: React.FC<EditRegistroProps> = ({ registroId, entrada, saida,
     const newEntrada = new Date(`${dateStr}T${entradaTime}:00`).toISOString();
     const newSaida = saidaTime ? new Date(`${dateStr}T${saidaTime}:00`).toISOString() : null;
 
-    const updateData: any = {
+    const updateData = {
       entrada: newEntrada,
       saida: newSaida,
       editado_manualmente: true,

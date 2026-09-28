@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/formatters';
-import { calcularJornada, formatarDuracaoJornada, getCargaDiaria, type Marcacao } from '@/lib/jornada';
+import { calcularJornada, formatarDuracaoJornada, getCargaDiaria, type Marcacao, type TipoJornada } from '@/lib/jornada';
 import { fetchBancoHorasEntries, summarizeBancoHoras, formatMinutosHoras } from '@/lib/banco-horas';
 import { getFeriadoComLocais } from '@/lib/feriados';
 import { calcularLiquido } from '@/lib/descontos';
@@ -24,26 +24,18 @@ const MonthSummaryCard: React.FC = () => {
   const [feriadosLocais, setFeriadosLocais] = useState<{ data: string; nome: string; recorrente: boolean }[]>([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  const p = profile as any;
+  const p = profile;
+  const tipoJornada: TipoJornada = p?.tipo_jornada === 'escala' || p?.tipo_jornada === 'turno'
+    ? p.tipo_jornada
+    : 'jornada_fixa';
   const carga = getCargaDiaria(
-    (p?.tipo_jornada || 'jornada_fixa') as any,
+    tipoJornada,
     p?.escala_tipo || null,
     p?.carga_horaria_diaria ?? 8,
   );
   const salario = profile?.salario_base ?? 0;
   const percentual = profile?.hora_extra_percentual ?? 50;
   const descontosFixos = (p?.descontos_fixos as number) ?? 0;
-  const beneficios = {
-    valeAlimentacao: (p?.vale_alimentacao as number) ?? 0,
-    auxilioCombustivel: (p?.auxilio_combustivel as number) ?? 0,
-    bonificacoes: (p?.bonificacoes as number) ?? 0,
-  };
-  const descontosDetalhados = {
-    planoSaude: (p?.plano_saude as number) ?? 0,
-    adiantamentos: (p?.adiantamentos as number) ?? 0,
-    outrosDescontos: (p?.outros_descontos_detalhados as number) ?? 0,
-  };
-
   const diaFechamento = (p?.dia_fechamento_folha as number) ?? 0;
 
   const fetchData = useCallback(async () => {
@@ -59,21 +51,31 @@ const MonthSummaryCard: React.FC = () => {
       supabase.from('feriados_locais').select('data, nome, recorrente').eq('user_id', user.id),
     ]);
     setMarcacoes((marcRes.data as Marcacao[]) || []);
-    setFeriadosLocais((feriadosRes.data as any[]) || []);
+    setFeriadosLocais(feriadosRes.data ?? []);
 
     const entries = await fetchBancoHorasEntries(user.id);
     const s = summarizeBancoHoras(entries, salario, percentual);
     const saldoInicial = p?.banco_horas_saldo_inicial ?? 0;
-    const { data: comps } = await supabase.from('compensacoes_banco_horas' as any)
+    const { data: comps } = await supabase.from('compensacoes_banco_horas')
       .select('minutos').eq('user_id', user.id);
-    const totalComp = (comps as any[] || []).reduce((acc: number, c: any) => acc + c.minutos, 0);
+    const totalComp = (comps ?? []).reduce((acc, compensation) => acc + compensation.minutos, 0);
     setBancoSaldo(saldoInicial + s.saldo - totalComp);
     setBancoUsado(totalComp);
-  }, [user, profile, salario, percentual, diaFechamento]);
+  }, [user, salario, percentual, diaFechamento, p?.banco_horas_saldo_inicial]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const stats = useMemo(() => {
+    const beneficios = {
+      valeAlimentacao: (p?.vale_alimentacao as number) ?? 0,
+      auxilioCombustivel: (p?.auxilio_combustivel as number) ?? 0,
+      bonificacoes: (p?.bonificacoes as number) ?? 0,
+    };
+    const descontosDetalhados = {
+      planoSaude: (p?.plano_saude as number) ?? 0,
+      adiantamentos: (p?.adiantamentos as number) ?? 0,
+      outrosDescontos: (p?.outros_descontos_detalhados as number) ?? 0,
+    };
     const map = new Map<string, Marcacao[]>();
     marcacoes.forEach(m => {
       if (!map.has(m.data)) map.set(m.data, []);
@@ -105,7 +107,7 @@ const MonthSummaryCard: React.FC = () => {
     const resumo = calcularLiquido(bruto, descontosFixos, beneficios, descontosDetalhados);
 
     return { totalMin, extraMin, diasTrab, estimativaExtra, bruto, valorHN, valorHE, resumo };
-  }, [marcacoes, carga, salario, percentual, feriadosLocais, descontosFixos, beneficios, descontosDetalhados]);
+  }, [marcacoes, carga, salario, percentual, feriadosLocais, descontosFixos, p?.vale_alimentacao, p?.auxilio_combustivel, p?.bonificacoes, p?.plano_saude, p?.adiantamentos, p?.outros_descontos_detalhados]);
 
   const mesNome = new Date().toLocaleDateString('pt-BR', { month: 'long' }).replace(/^./, s => s.toUpperCase());
 

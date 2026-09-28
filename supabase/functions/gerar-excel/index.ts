@@ -1,27 +1,87 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import ExcelJS from "npm:exceljs@4.4.0";
+import { buildCorsHeaders } from "../_shared/cors.ts";
+import { hasProductAccess } from "../_shared/product-access.ts";
 
-function corsHeaders(origin: string | null) {
-  const appUrl = Deno.env.get("APP_URL") || "https://horajusta.com";
-  return {
-    "Access-Control-Allow-Origin": origin === appUrl ? origin : appUrl,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Vary": "Origin",
+type ExcelRow<Row> = {
+  Row: Row;
+  Insert: Partial<Row>;
+  Update: Partial<Row>;
+  Relationships: [];
+};
+
+type ExcelProfile = {
+  id: string;
+  created_at: string | null;
+  plano: string | null;
+  plano_vencimento: string | null;
+  is_pro: boolean;
+  subscription_status: string;
+  nome: string | null;
+  empresa: string | null;
+  carga_horaria_diaria: number | null;
+  salario_base: number | null;
+  hora_extra_percentual: number | null;
+  banco_horas_saldo_inicial: number | null;
+  tipo_jornada: string;
+  modo_trabalho: string;
+  intervalo_almoco: number;
+  dias_trabalhados_semana: number;
+  data_admissao: string | null;
+  horario_entrada_padrao: string | null;
+  horario_saida_padrao: string | null;
+};
+
+type ExcelMark = { data: string; horario: string; tipo: string; origem: string | null };
+type ExcelBankEntry = { data: string; tipo: string; minutos: number; expira_em: string; nota: string | null };
+type ExcelCompensation = { data: string; minutos: number; tipo: string | null; observacao: string | null };
+type ExcelVacation = {
+  data_inicio: string;
+  data_fim: string;
+  tipo: string | null;
+  status: string | null;
+  dias_direito: number | null;
+  observacao: string | null;
+};
+
+type ExcelDatabase = {
+  public: {
+    Tables: {
+      profiles: ExcelRow<ExcelProfile>;
+      marcacoes_ponto: ExcelRow<ExcelMark & { user_id: string; deleted_at: string | null }>;
+      banco_horas: ExcelRow<ExcelBankEntry & { user_id: string }>;
+      ferias: ExcelRow<ExcelVacation & { user_id: string }>;
+      compensacoes_banco_horas: ExcelRow<ExcelCompensation & { user_id: string }>;
+    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
-}
+};
 
-function hasExportAccess(profile: Record<string, unknown>): boolean {
-  const expiresAt = profile.plano_vencimento ? new Date(String(profile.plano_vencimento)) : null;
-  const notExpired = !expiresAt || expiresAt > new Date();
-  const paid = (profile.plano === "pro" || profile.plano === "anual" || profile.is_pro === true || profile.subscription_status === "active") && notExpired;
-  const createdAt = profile.created_at ? new Date(String(profile.created_at)) : null;
-  const trial = createdAt && Date.now() - createdAt.getTime() < 7 * 24 * 60 * 60 * 1000;
-  return Boolean(paid || trial);
-}
+type DailyExcelRow = {
+  data: string;
+  dia: string;
+  entrada: string;
+  saidaInt: string;
+  voltaInt: string;
+  saidaFinal: string;
+  intervalo: string;
+  totalTrab: string;
+  totalTrabMin: number;
+  extra: string;
+  extraMin: number;
+  devendo: string;
+  devendoMin: number;
+  marcacoes: number;
+};
 
 serve(async (req) => {
-  const cors = corsHeaders(req.headers.get("Origin"));
+  const appUrl = Deno.env.get("APP_URL");
+  if (!appUrl) return new Response(JSON.stringify({ error: "Serviço indisponível" }), { status: 503 });
+  const cors = buildCorsHeaders(req.headers.get("Origin"), appUrl);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: cors });
   }
@@ -29,29 +89,55 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header");
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    if (!token) return new Response(JSON.stringify({ error: "Sessão inválida. Entre novamente." }), {
+      status: 401,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !supabaseKey) return new Response(JSON.stringify({ error: "Serviço indisponível" }), {
+      status: 503,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+    const supabase = createClient<ExcelDatabase>(supabaseUrl, supabaseKey);
 
-    const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) throw new Error("Unauthorized");
+    if (userError || !user) return new Response(JSON.stringify({ error: "Sessão inválida. Entre novamente." }), {
+      status: 401,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
 
-    const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-    if (!profile || !hasExportAccess(profile as Record<string, unknown>)) {
+    const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+    if (profileError) {
+      console.error("Excel profile lookup failed", { code: profileError.code });
+      return new Response(JSON.stringify({ error: "Não foi possível carregar seus dados agora. Tente novamente." }), {
+        status: 503,
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
+    if (!profile || !hasProductAccess(profile)) {
       return new Response(JSON.stringify({ error: "Recurso disponível para usuários PRO" }), {
         status: 403,
         headers: { ...cors, "Content-Type": "application/json" },
       });
     }
-    const { data: marcacoes } = await supabase.from("marcacoes_ponto").select("*").eq("user_id", user.id).is("deleted_at", null).order("data").order("horario");
-    const { data: bancoEntries } = await supabase.from("banco_horas").select("*").eq("user_id", user.id).order("data");
-    const { data: ferias } = await supabase.from("ferias").select("*").eq("user_id", user.id).order("data_inicio");
-    const { data: compensacoes } = await supabase.from("compensacoes_banco_horas").select("*").eq("user_id", user.id).order("data");
+    const { data: marcacoes, error: marcacoesError } = await supabase.from("marcacoes_ponto").select("*").eq("user_id", user.id).is("deleted_at", null).order("data").order("horario");
+    const { data: bancoEntries, error: bancoError } = await supabase.from("banco_horas").select("*").eq("user_id", user.id).order("data");
+    const { data: ferias, error: feriasError } = await supabase.from("ferias").select("*").eq("user_id", user.id).order("data_inicio");
+    const { data: compensacoes, error: compensacoesError } = await supabase.from("compensacoes_banco_horas").select("*").eq("user_id", user.id).order("data");
+    const dataErrors = [marcacoesError, bancoError, feriasError, compensacoesError]
+      .filter((error) => error !== null);
+    if (dataErrors.length) {
+      console.error("Excel source data lookup failed", { codes: dataErrors.map((error) => error.code) });
+      return new Response(JSON.stringify({ error: "Não foi possível carregar seus dados agora. Tente novamente." }), {
+        status: 503,
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
 
-    const p = profile || {} as any;
+    const p = profile;
     const cargaMin = (p.carga_horaria_diaria || 8) * 60;
     const salario = p.salario_base || 0;
     const percentual = p.hora_extra_percentual || 50;
@@ -67,10 +153,10 @@ serve(async (req) => {
     const fmtMin = (min: number) => { const h = Math.floor(Math.abs(min) / 60); const m = Math.abs(min) % 60; return `${min < 0 ? '-' : ''}${h}h ${String(m).padStart(2, '0')}min`; };
 
     // Group by day
-    const dayMap = new Map<string, any[]>();
-    (marcacoes || []).forEach((m: any) => { if (!dayMap.has(m.data)) dayMap.set(m.data, []); dayMap.get(m.data)!.push(m); });
+    const dayMap = new Map<string, ExcelMark[]>();
+    (marcacoes || []).forEach((m) => { if (!dayMap.has(m.data)) dayMap.set(m.data, []); dayMap.get(m.data)!.push(m); });
 
-    function calcJornada(marks: any[]) {
+    function calcJornada(marks: ExcelMark[]) {
       let totalTrab = 0, totalInt = 0, inicioAtual: string | null = null, saidaInt: string | null = null;
       let primeiraEntrada: string | null = null, ultimaSaida: string | null = null;
       for (const m of marks) {
@@ -209,10 +295,10 @@ serve(async (req) => {
     const contPorMes: Record<string, number> = {};
 
     const sortedDays = Array.from(dayMap.entries()).sort(([a], [b]) => a.localeCompare(b));
-    const dailyRows: any[] = [];
+    const dailyRows: DailyExcelRow[] = [];
 
     sortedDays.forEach(([data, marks]) => {
-      const sorted = marks.sort((a: any, b: any) => a.horario.localeCompare(b.horario));
+      const sorted = marks.sort((a, b) => a.horario.localeCompare(b.horario));
       const j = calcJornada(sorted);
       const extra = Math.max(0, j.totalTrab - cargaMin);
       const devendo = Math.max(0, cargaMin - j.totalTrab);
@@ -236,8 +322,10 @@ serve(async (req) => {
       dailyRows.push({
         data: fmtData(data), dia: diasSemana[dow],
         entrada: j.primeiraEntrada ? fmtHora(j.primeiraEntrada) : '',
-        saidaInt: sorted.find((m: any) => m.tipo === 'saida_intervalo')?.horario ? fmtHora(sorted.find((m: any) => m.tipo === 'saida_intervalo').horario) : '',
-        voltaInt: sorted.find((m: any) => m.tipo === 'volta_intervalo')?.horario ? fmtHora(sorted.find((m: any) => m.tipo === 'volta_intervalo').horario) : '',
+        saidaInt: sorted.find((m) => m.tipo === 'saida_intervalo')?.horario
+          ? fmtHora(sorted.find((m) => m.tipo === 'saida_intervalo')!.horario) : '',
+        voltaInt: sorted.find((m) => m.tipo === 'volta_intervalo')?.horario
+          ? fmtHora(sorted.find((m) => m.tipo === 'volta_intervalo')!.horario) : '',
         saidaFinal: j.ultimaSaida ? fmtHora(j.ultimaSaida) : '',
         intervalo: j.totalInt > 0 ? fmtMin(j.totalInt) : '',
         totalTrab: fmtMin(j.totalTrab), totalTrabMin: j.totalTrab,
@@ -262,7 +350,7 @@ serve(async (req) => {
 
     // Banco de Horas
     let bhSaldo = saldoInicial;
-    (bancoEntries || []).forEach((e: any) => {
+    (bancoEntries || []).forEach((e) => {
       if (e.tipo === 'acumulo') bhSaldo += e.minutos;
       else bhSaldo -= e.minutos;
     });
@@ -270,14 +358,14 @@ serve(async (req) => {
     addSection('🏦 BANCO DE HORAS', SUCCESS);
     addField('Saldo Inicial', fmtMin(saldoInicial), LIGHT_GREEN);
     addField('Saldo Atual', fmtMin(bhSaldo));
-    addField('Entradas (Acúmulos)', (bancoEntries || []).filter((b: any) => b.tipo === 'acumulo').length, LIGHT_GREEN);
-    addField('Saídas (Compensações)', (bancoEntries || []).filter((b: any) => b.tipo === 'compensacao').length);
+    addField('Entradas (Acúmulos)', (bancoEntries || []).filter((b) => b.tipo === 'acumulo').length, LIGHT_GREEN);
+    addField('Saídas (Compensações)', (bancoEntries || []).filter((b) => b.tipo === 'compensacao').length);
     row++;
 
     // Férias
     addSection('🏖️ FÉRIAS', WARNING);
     addField('Períodos Registrados', (ferias || []).length, LIGHT_YELLOW);
-    (ferias || []).forEach((f: any) => {
+    (ferias || []).forEach((f) => {
       addField(`  ${f.tipo || 'Normal'}`, `${fmtData(f.data_inicio)} a ${fmtData(f.data_fim)} — ${f.status || ''}`);
     });
     row++;
@@ -403,7 +491,7 @@ serve(async (req) => {
     const tipoColors: Record<string, string> = { entrada: SUCCESS, saida_intervalo: WARNING, volta_intervalo: '3498DB', saida_final: DANGER };
     const tipoLabels: Record<string, string> = { entrada: 'Entrada', saida_intervalo: 'Saída Intervalo', volta_intervalo: 'Volta Intervalo', saida_final: 'Saída Final' };
 
-    (marcacoes || []).forEach((m: any, i: number) => {
+    (marcacoes || []).forEach((m, i) => {
       const r = wsMarc.getRow(i + 2);
       const dt = new Date(m.data + 'T12:00:00');
       r.values = [fmtData(m.data), diasSemana[dt.getDay()], tipoLabels[m.tipo] || m.tipo, fmtHora(m.horario), m.origem === 'botao' ? 'Botão' : m.origem === 'manual' ? 'Manual' : m.origem || ''];
@@ -423,7 +511,7 @@ serve(async (req) => {
     ];
     wsBH.getRow(1).eachCell((cell) => { cell.font = headerFont; cell.fill = headerFill; cell.border = borders; cell.alignment = { horizontal: 'center' }; });
 
-    (bancoEntries || []).forEach((b: any, i: number) => {
+    (bancoEntries || []).forEach((b, i) => {
       const r = wsBH.getRow(i + 2);
       r.values = [fmtData(b.data), b.tipo === 'acumulo' ? '⬆ Acúmulo' : '⬇ Compensação', fmtMin(b.minutos), b.minutos, fmtData(b.expira_em?.split('T')[0] || ''), b.nota || ''];
       r.eachCell((cell) => { cell.font = normalFont; cell.border = borders; });
@@ -452,7 +540,7 @@ serve(async (req) => {
     ];
     wsComp.getRow(1).eachCell((cell) => { cell.font = headerFont; cell.fill = headerFill; cell.border = borders; cell.alignment = { horizontal: 'center' }; });
 
-    (compensacoes || []).forEach((c: any, i: number) => {
+    (compensacoes || []).forEach((c, i) => {
       const r = wsComp.getRow(i + 2);
       r.values = [fmtData(c.data), fmtMin(c.minutos), c.minutos, c.tipo === 'dia_completo' ? 'Dia Completo' : c.tipo || '', c.observacao || ''];
       r.eachCell((cell) => { cell.font = normalFont; cell.border = borders; });
@@ -470,7 +558,7 @@ serve(async (req) => {
     ];
     wsFer.getRow(1).eachCell((cell) => { cell.font = headerFont; cell.fill = headerFill; cell.border = borders; cell.alignment = { horizontal: 'center' }; });
 
-    (ferias || []).forEach((f: any, i: number) => {
+    (ferias || []).forEach((f, i) => {
       const r = wsFer.getRow(i + 2);
       r.values = [fmtData(f.data_inicio), fmtData(f.data_fim), f.tipo || 'Normal', f.status || '', f.dias_direito || 30, f.observacao || ''];
       r.eachCell((cell) => { cell.font = normalFont; cell.border = borders; });
@@ -528,9 +616,9 @@ serve(async (req) => {
       },
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Erro ao gerar arquivo";
-    return new Response(JSON.stringify({ error: message }), {
-      status: 400,
+    console.error("Excel generation failed", { name: error instanceof Error ? error.name : "unknown" });
+    return new Response(JSON.stringify({ error: "Não foi possível gerar o arquivo agora. Tente novamente." }), {
+      status: 500,
       headers: { ...cors, "Content-Type": "application/json" },
     });
   }

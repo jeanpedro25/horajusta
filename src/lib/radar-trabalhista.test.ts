@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { analisarRadarTrabalhista } from '@/lib/radar-trabalhista';
+import { analisarRadarTrabalhista, calcularAjusteSaldoJornada } from '@/lib/radar-trabalhista';
 
 describe('radar-trabalhista', () => {
+  it('desconta insuficiência apenas de dias marcados e não presume falta nos dias pendentes', () => {
+    expect(calcularAjusteSaldoJornada([
+      { data: '2026-04-01', totalMin: 360, extraMin: 0, intervaloMin: 0, origem: 'real', devendoMin: 120 },
+      { data: '2026-04-02', totalMin: 600, extraMin: 120, intervaloMin: 60, origem: 'real', devendoMin: 0 },
+      { data: '2026-04-03', totalMin: 0, extraMin: 0, intervaloMin: 0, origem: 'pendente', devendoMin: 480 },
+    ])).toBe(0);
+  });
+
   it('deve ignorar dias reconstituídos quando excluirReconstituidos=true', () => {
     const days = [
       // reconstituído com extra grande: não deve contar
@@ -25,7 +33,15 @@ describe('radar-trabalhista', () => {
   });
 
   it('deve gerar alerta de sequência quando houver muitos dias consecutivos', () => {
-    const days: any[] = [];
+    const days: Array<{
+      data: string;
+      totalMin: number;
+      extraMin: number;
+      intervaloMin: number;
+      origem: string;
+      ehDiaTrabalho: boolean;
+      registroOrigem: string;
+    }> = [];
     // 12 dias corridos trabalhados
     for (let i = 1; i <= 12; i++) {
       const d = `2026-04-${String(i).padStart(2, '0')}`;

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +10,8 @@ import { toast } from '@/hooks/use-toast';
 import { Zap, Play, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { gerarHistoricoMultiPeriodo, contarDiasUteis, type PeriodoTrabalho } from '@/lib/historico-automatico';
 import { dataHojeLocal } from '@/lib/dataHora';
+import type { FeriadoLocalConfig } from '@/lib/feriados';
+import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
 const TOTAL_STEPS = 7; // 1-nome, 2-salário, 3-carga, 4-extras, 5-histórico escolha, 6-config importação, 7-processando
 
@@ -24,6 +26,9 @@ const OnboardingPage: React.FC = () => {
   const [percentual, setPercentual] = useState('50');
   const [percentualFeriado, setPercentualFeriado] = useState('100');
   const [loading, setLoading] = useState(false);
+  const [feriadosLocais, setFeriadosLocais] = useState<FeriadoLocalConfig[]>([]);
+  const [feriadosLocaisCarregados, setFeriadosLocaisCarregados] = useState(false);
+  const [erroFeriadosLocais, setErroFeriadosLocais] = useState('');
 
   // Step 5 - history choice
   const [escolhaHistorico, setEscolhaHistorico] = useState<'zero' | 'importar' | null>(null);
@@ -74,6 +79,26 @@ const OnboardingPage: React.FC = () => {
 
   const hoje = dataHojeLocal();
 
+  useEffect(() => {
+    if (!user) return;
+    let ativo = true;
+    supabase
+      .from('feriados_locais')
+      .select('data,nome,recorrente')
+      .eq('user_id', user.id)
+      .then(({ data, error }) => {
+        if (!ativo) return;
+        if (error) {
+          setErroFeriadosLocais(error.message);
+        } else {
+          setFeriadosLocais(data ?? []);
+          setErroFeriadosLocais('');
+          setFeriadosLocaisCarregados(true);
+        }
+      });
+    return () => { ativo = false; };
+  }, [user]);
+
   // Sync separate fields → dataAdmissao
   const updateDataAdmissao = (dia: string, mes: string, ano: string) => {
     setAdmDia(dia);
@@ -93,8 +118,8 @@ const OnboardingPage: React.FC = () => {
 
   const diasUteisEstimados = useMemo(() => {
     if (!dataAdmissao || dataAdmissao >= hoje) return 0;
-    return contarDiasUteis(dataAdmissao, hoje, periodos[0].diasSemana);
-  }, [dataAdmissao, hoje, periodos]);
+    return contarDiasUteis(dataAdmissao, hoje, periodos[0].diasSemana, feriadosLocais);
+  }, [dataAdmissao, hoje, periodos, feriadosLocais]);
 
   const mesesHistorico = useMemo(() => {
     if (!dataAdmissao) return 0;
@@ -116,7 +141,7 @@ const OnboardingPage: React.FC = () => {
     }));
   };
 
-  const updatePeriodo = (id: number, field: string, value: any) => {
+  const updatePeriodo = <K extends keyof PeriodoUI>(id: number, field: K, value: PeriodoUI[K]) => {
     setPeriodos(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
   };
 
@@ -166,7 +191,7 @@ const OnboardingPage: React.FC = () => {
     if (step === 4) return Number(percentual) > 0 && Number(percentualFeriado) > 0;
     if (step === 5) return escolhaHistorico !== null;
     if (step === 6) {
-      if (!dataAdmissao || dataAdmissao >= hoje) return false;
+      if (!dataAdmissao || dataAdmissao >= hoje || !feriadosLocaisCarregados) return false;
       // If multiple periods, each needs a dataFim (except the last which goes to today)
       if (periodos.length > 1) {
         for (let i = 0; i < periodos.length - 1; i++) {
@@ -178,14 +203,16 @@ const OnboardingPage: React.FC = () => {
     return false;
   };
 
+  const podeIniciarImportacao = () => canAdvance() && (step !== 6 || feriadosLocaisCarregados);
+
   const saveProfile = async (
-    extra: Record<string, any> = {},
+    extra: Partial<TablesUpdate<'profiles'>> = {},
     options: { completeOnboarding?: boolean } = {}
   ) => {
     if (!user) return false;
     const { completeOnboarding = true } = options;
     const cargaFinal = carga || Number(cargaCustom);
-    const payload = {
+    const payload: TablesInsert<'profiles'> = {
       id: user.id,
       nome: nome.trim(),
       salario_base: Number(salario),
@@ -198,7 +225,7 @@ const OnboardingPage: React.FC = () => {
 
     const { error } = await supabase
       .from('profiles')
-      .upsert(payload as any, { onConflict: 'id' });
+      .upsert(payload, { onConflict: 'id' });
 
     if (error) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
@@ -263,7 +290,8 @@ const OnboardingPage: React.FC = () => {
         (pct, msg) => {
           setProgresso(pct);
           setProgressoMsg(msg);
-        }
+        },
+        feriadosLocais,
       );
 
       setProgresso(100);
@@ -281,8 +309,8 @@ const OnboardingPage: React.FC = () => {
       });
 
       setTimeout(() => navigate('/app'), 1500);
-    } catch (err: any) {
-      toast({ title: 'Erro na importação', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Erro na importação', description: err instanceof Error ? err.message : 'Não foi possível importar seu histórico.', variant: 'destructive' });
       setProcessando(false);
       setStep(6);
     }
@@ -549,9 +577,19 @@ const OnboardingPage: React.FC = () => {
                 </div>
               </div>
               {dataAdmissao && dataAdmissao < hoje && (
+                <>
                 <p className="text-xs text-muted-foreground">
                   → {mesesHistorico} meses · ~{diasUteisEstimados} dias úteis
                 </p>
+                {erroFeriadosLocais && (
+                  <p role="alert" className="mt-2 text-sm text-destructive">
+                    Não foi possível carregar seus feriados locais. Tente novamente antes de continuar.
+                  </p>
+                )}
+                {!feriadosLocaisCarregados && !erroFeriadosLocais && (
+                  <p className="mt-2 text-xs text-muted-foreground">Carregando feriados locais…</p>
+                )}
+                </>
               )}
             </div>
 
@@ -760,7 +798,7 @@ const OnboardingPage: React.FC = () => {
             )}
             <Button
               onClick={next}
-              disabled={!canAdvance() || loading}
+              disabled={!podeIniciarImportacao() || loading}
               className="flex-1 bg-primary text-primary-foreground rounded-xl h-12 text-base font-semibold"
             >
               {loading

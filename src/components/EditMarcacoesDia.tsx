@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
@@ -10,9 +10,10 @@ import { Camera, Upload, ExternalLink, Trash2, Loader2, FileText, Plus, Pencil, 
 import {
   buscarMarcacoesDia, calcularJornada, formatarHoraLocal,
   formatarDuracaoJornada, getMarcacaoVisual, inserirMarcacaoManual, getCargaDiaria,
-  type Marcacao, type TipoMarcacao,
+  type Marcacao, type TipoJornada, type TipoMarcacao,
 } from '@/lib/jornada';
 import { garantirRegistroDia, sincronizarRegistroDia } from '@/lib/registro-dia';
+import { ATESTADO_ACCEPT, extensaoAtestado, validarArquivoAtestado } from '@/lib/atestado-upload';
 
 interface EditMarcacoesDiaProps {
   open: boolean;
@@ -32,7 +33,10 @@ const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad/i.test
 
 const EditMarcacoesDia: React.FC<EditMarcacoesDiaProps> = ({ open, onClose, data, onSaved }) => {
   const { user, profile } = useAuth();
-  const p = profile as any;
+  const p = profile;
+  const tipoJornada: TipoJornada = p?.tipo_jornada === 'turno' || p?.tipo_jornada === 'escala'
+    ? p.tipo_jornada
+    : 'jornada_fixa';
   const [marcacoes, setMarcacoes] = useState<Marcacao[]>([]);
   const [loading, setLoading] = useState(false);
   const [addingNew, setAddingNew] = useState(false);
@@ -49,38 +53,27 @@ const EditMarcacoesDia: React.FC<EditMarcacoesDiaProps> = ({ open, onClose, data
   const cameraRef = useRef<HTMLInputElement>(null);
 
   const carga = getCargaDiaria(
-    (p?.tipo_jornada || 'jornada_fixa') as any,
+    tipoJornada,
     p?.escala_tipo || null,
     p?.carga_horaria_diaria ?? 8,
   );
 
   const syncDay = async () => {
     if (!user || !data) return;
-    await sincronizarRegistroDia(user.id, data, p, user.id);
+    await sincronizarRegistroDia(user.id, data, p ? { ...p, tipo_jornada: tipoJornada } : p, user.id);
   };
 
-  const fetchMarcacoes = async () => {
+  const fetchMarcacoes = useCallback(async () => {
     if (!user || !data) return;
     try {
       const m = await buscarMarcacoesDia(user.id, data);
       setMarcacoes(m);
-    } catch (err: any) {
-      toast({ title: 'Erro ao carregar marcações', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Erro ao carregar marcações', description: err instanceof Error ? err.message : 'Tente novamente.', variant: 'destructive' });
     }
-  };
+  }, [user, data]);
 
-  useEffect(() => {
-    if (open && data) {
-      fetchMarcacoes();
-      setAddingNew(false);
-      setNovoHorario('');
-      setEditingId(null);
-      loadAtestado();
-      loadObservacao();
-    }
-  }, [open, data]);
-
-  const loadAtestado = async () => {
+  const loadAtestado = useCallback(async () => {
     if (!user || !data) return;
     const { data: regs } = await supabase
       .from('registros_ponto')
@@ -96,9 +89,9 @@ const EditMarcacoesDia: React.FC<EditMarcacoesDiaProps> = ({ open, onClose, data
       setAtestadoUrl(null);
       setAtestadoPeriodo(null);
     }
-  };
+  }, [user, data]);
 
-  const loadObservacao = async () => {
+  const loadObservacao = useCallback(async () => {
     if (!user || !data) return;
     const { data: regs } = await supabase
       .from('registros_ponto')
@@ -108,7 +101,18 @@ const EditMarcacoesDia: React.FC<EditMarcacoesDiaProps> = ({ open, onClose, data
       .is('deleted_at', null)
       .limit(1);
     setObservacao(regs?.[0]?.observacao || '');
-  };
+  }, [user, data]);
+
+  useEffect(() => {
+    if (open && data) {
+      void fetchMarcacoes();
+      setAddingNew(false);
+      setNovoHorario('');
+      setEditingId(null);
+      void loadAtestado();
+      void loadObservacao();
+    }
+  }, [open, data, fetchMarcacoes, loadAtestado, loadObservacao]);
 
   const cargaMin = carga * 60;
   const jornadaRaw = calcularJornada(marcacoes, cargaMin);
@@ -194,8 +198,8 @@ const EditMarcacoesDia: React.FC<EditMarcacoesDiaProps> = ({ open, onClose, data
       setAddingNew(false);
       setNovoHorario('');
       onSaved();
-    } catch (err: any) {
-      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Erro', description: err instanceof Error ? err.message : 'Tente novamente.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -211,7 +215,7 @@ const EditMarcacoesDia: React.FC<EditMarcacoesDiaProps> = ({ open, onClose, data
     setLoading(true);
     const { error } = await supabase
       .from('marcacoes_ponto')
-      .update({ horario: horarioTs, origem: 'correcao' } as any)
+      .update({ horario: horarioTs, origem: 'correcao' })
       .eq('id', id)
       .eq('user_id', user.id);
     if (error) {
@@ -232,7 +236,7 @@ const EditMarcacoesDia: React.FC<EditMarcacoesDiaProps> = ({ open, onClose, data
     setLoading(true);
     const { error } = await supabase
       .from('marcacoes_ponto')
-      .update({ deleted_at: new Date().toISOString() } as any)
+      .update({ deleted_at: new Date().toISOString() })
       .eq('id', id)
       .eq('user_id', user.id);
     if (error) {
@@ -252,7 +256,7 @@ const EditMarcacoesDia: React.FC<EditMarcacoesDiaProps> = ({ open, onClose, data
     if (!confirm('Excluir TODAS as marcações deste dia? Essa ação não pode ser desfeita.')) return;
     setLoading(true);
     const now = new Date().toISOString();
-    const { error } = await supabase.from('marcacoes_ponto').update({ deleted_at: now } as any).eq('user_id', user.id).eq('data', data).is('deleted_at', null);
+    const { error } = await supabase.from('marcacoes_ponto').update({ deleted_at: now }).eq('user_id', user.id).eq('data', data).is('deleted_at', null);
     if (error) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
       setLoading(false);
@@ -279,8 +283,18 @@ const EditMarcacoesDia: React.FC<EditMarcacoesDiaProps> = ({ open, onClose, data
 
   const handleUpload = async (file: File) => {
     if (!user || !data) return;
+    const validationError = validarArquivoAtestado(file);
+    if (validationError) {
+      toast({ title: 'Arquivo não aceito', description: validationError, variant: 'destructive' });
+      return;
+    }
     setUploading(true);
-    const ext = file.name.split('.').pop();
+    const ext = extensaoAtestado(file);
+    if (!ext) {
+      toast({ title: 'Arquivo não aceito', description: 'Selecione PDF, JPEG, PNG ou WebP.', variant: 'destructive' });
+      setUploading(false);
+      return;
+    }
     const path = `${user.id}/${data}-${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from('atestados').upload(path, file, { cacheControl: '3600', upsert: true });
     if (error) {
@@ -470,8 +484,8 @@ const EditMarcacoesDia: React.FC<EditMarcacoesDiaProps> = ({ open, onClose, data
           {/* Atestado */}
           <div className="border-t border-border pt-4">
             <p className="text-sm font-medium mb-2">📋 Atestado médico</p>
-            <input ref={fileRef} type="file" accept="image/*,.pdf" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} className="hidden" />
-            <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} className="hidden" />
+            <input ref={fileRef} type="file" accept={ATESTADO_ACCEPT} onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} className="hidden" />
+            <input ref={cameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} className="hidden" />
 
             {!atestadoUrl ? (
               <div className="flex gap-2">

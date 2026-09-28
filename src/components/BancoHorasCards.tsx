@@ -43,8 +43,7 @@ const BancoHorasCards: React.FC = () => {
   const [compTipo, setCompTipo] = useState('dia_completo');
   const [savingComp, setSavingComp] = useState(false);
 
-  const p = profile as any;
-  const cargaDiaria = p?.carga_horaria_diaria ?? 8;
+  const cargaDiaria = profile?.carga_horaria_diaria ?? 8;
 
   const load = useCallback(async () => {
     if (!user || !profile) return;
@@ -55,20 +54,20 @@ const BancoHorasCards: React.FC = () => {
       profile.hora_extra_percentual ?? 50,
     );
     setSummary(s);
-    setSaldoInicial(p?.banco_horas_saldo_inicial ?? 0);
+    setSaldoInicial(profile.banco_horas_saldo_inicial ?? 0);
 
     // Fetch compensações
     const { data: comps } = await supabase
-      .from('compensacoes_banco_horas' as any)
+      .from('compensacoes_banco_horas')
       .select('minutos')
       .eq('user_id', user.id);
-    const total = (comps as any[] || []).reduce((acc: number, c: any) => acc + c.minutos, 0);
+    const total = (comps ?? []).reduce((acc, compensation) => acc + compensation.minutos, 0);
     setTotalCompensado(total);
   }, [user, profile]);
 
   useEffect(() => { load(); }, [load]);
 
-  if (!summary || p?.modo_trabalho !== 'banco_horas') return null;
+  if (!summary || profile?.modo_trabalho !== 'banco_horas') return null;
 
   const saldoRegistros = summary.saldo;
   const saldoFinal = saldoInicial + saldoRegistros - totalCompensado;
@@ -84,13 +83,13 @@ const BancoHorasCards: React.FC = () => {
       return;
     }
     setSavingComp(true);
-    const { error } = await supabase.from('compensacoes_banco_horas' as any).insert({
+    const { error } = await supabase.from('compensacoes_banco_horas').insert({
       user_id: user.id,
       data: compData,
       minutos,
       tipo: compTipo,
       observacao: compObs.trim() || null,
-    } as any);
+    });
     if (error) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     } else {

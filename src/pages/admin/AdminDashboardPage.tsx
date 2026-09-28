@@ -1,4 +1,4 @@
-import { useDeferredValue, useState } from 'react';
+import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Activity, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight,
@@ -44,23 +44,42 @@ function planBadgeClass(plan: string | null) {
 
 // ─── User Detail Modal ──────────────────────────────────────────────────────
 function UserDetailModal({ userId, onClose }: { userId: string; onClose: () => void }) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const { data, isPending, isError } = useQuery({
     queryKey: ['admin-user-detail', userId],
     queryFn: () => getAdminUserDetail(userId),
-    staleTime: 60_000,
+    staleTime: 0,
+    gcTime: 0,
   });
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCloseRef.current();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
     <div
+      role="presentation"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Detalhes do usuário"
         className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-slate-900 p-7 shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         <button
+          ref={closeButtonRef}
           onClick={onClose}
+          aria-label="Fechar detalhes do usuário"
           className="absolute right-5 top-5 rounded-xl p-1 text-slate-500 transition-colors hover:bg-white/10 hover:text-white"
         >
           <X size={18} />

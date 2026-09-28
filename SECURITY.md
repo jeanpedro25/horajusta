@@ -23,6 +23,8 @@ Apagar o arquivo ou alterar `.gitignore` não resolve sozinho a exposição ante
 - Webhook com segredo obrigatório, janela contra replay e validação de valor, moeda e recebedor.
 - Revogação de acesso em eventos de reembolso, chargeback e cancelamento.
 - Exportações PRO verificadas nas Edge Functions.
+- Exclusão de conta pela Edge Function `delete-account`: valida a sessão, remove anexos do usuário no bucket privado e só então chama a RPC de exclusão. Falhas de Storage impedem a exclusão da conta.
+- A migração `20260922000000_harden_definer_search_paths.sql` remove a RPC legada `delete_my_account()` executável por `authenticated`; a nova assinatura UUID só concede execução a `service_role`, chamada pela Edge Function após limpeza da Storage. `SECURITY DEFINER` usa `search_path` vazio e referências qualificadas.
 - Bucket privado com limite de 10 MB e tipos MIME permitidos.
 - Cabeçalhos de segurança na Vercel e CSP inicialmente em modo Report-Only.
 
@@ -31,13 +33,15 @@ Apagar o arquivo ou alterar `.gitignore` não resolve sozinho a exposição ante
 - Confirmar RLS e grants reais em todas as tabelas.
 - Confirmar que `authenticated` não consegue atualizar `profiles.is_pro`, `profiles.plano`, `profiles.plano_vencimento`, `profiles.plano_payment_id`, `profiles.subscription_status` ou `profiles.created_at`.
 - Confirmar que usuário comum recebe erro ao chamar RPCs `admin_*`.
+- Após a nova migração no Preview, confirmar que `authenticated` não tem EXECUTE em `public.delete_my_account(uuid)`, `service_role` tem EXECUTE e a assinatura antiga sem argumentos não existe.
+- Confirmar que `delete-account` usa `service_role` somente após validar o bearer token do usuário e concluir inventário/remoção da Storage.
 - Confirmar que somente UUIDs em `private.user_roles` recebem `true` de `public.is_admin()`.
 - Confirmar proteção contra senhas vazadas, CAPTCHA/rate limit e allowlist de redirects OAuth.
 - Confirmar separação de variáveis entre Vercel Production, Preview e Development.
 
 ## Riscos restantes
 
-- A exclusão atual da conta não remove automaticamente objetos antigos do Storage; é necessário migrar o fluxo para uma Edge Function com `service_role` e reconciliação de falhas.
+- A Edge Function `delete-account` ainda precisa ser implantada e testada no projeto Supabase real. Se a remoção de Storage funcionar e a RPC falhar, a conta permanece ativa sem esses anexos; repetir a solicitação é seguro. Planejar reconciliação operacional para falhas persistentes.
 - O histórico de edições existente não é uma trilha inviolável gerada integralmente pelo banco.
 - A CSP está em Report-Only para evitar quebra de OAuth, Supabase, downloads e Mercado Pago. Analise os relatórios antes de torná-la obrigatória.
 - Migrações locais não provam o estado do banco hospedado. Faça sempre comparação de schema e backup.

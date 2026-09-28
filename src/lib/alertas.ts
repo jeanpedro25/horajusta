@@ -52,8 +52,7 @@ export async function gerarAlertas(registro: Registro, perfil: Profile) {
   }
 
   // Banco de horas alerts
-  const p = perfil as any;
-  if (p.modo_trabalho === 'banco_horas') {
+  if (perfil.modo_trabalho === 'banco_horas') {
     try {
       const entries = await fetchBancoHorasEntries(perfil.id);
       const summary = summarizeBancoHoras(entries, perfil.salario_base ?? 0, perfil.hora_extra_percentual ?? 50);
@@ -84,7 +83,9 @@ export async function gerarAlertas(registro: Registro, perfil: Profile) {
           registro_id: registro.id,
         });
       }
-    } catch {}
+    } catch (error) {
+      console.error('Falha ao calcular alertas do banco de horas', error);
+    }
   }
 
   if (alertas.length > 0) {

@@ -4,16 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable/index';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import HoraJustaLogo from '@/components/HoraJustaLogo';
+import { hasCurrentLegalAcceptance } from '@/lib/legal-versions';
 
-/**
- * Use Supabase Google OAuth everywhere — Lovable OAuth only works on lovable.app domains.
- * On horajusta.com and Vercel deployments, always use the Supabase provider directly.
- */
-function useSupabaseGoogleOAuth(): boolean {
-  if (import.meta.env.VITE_USE_LOVABLE_OAUTH === 'true') return false;
-  return true; // Always use Supabase OAuth in production
+/** Use Lovable OAuth only when explicitly enabled for its supported host; otherwise use Supabase. */
+function usesLovableGoogleOAuth(): boolean {
+  return import.meta.env.VITE_USE_LOVABLE_OAUTH === 'true';
 }
 
 const AuthPage: React.FC = () => {
@@ -22,6 +20,9 @@ const AuthPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [signupConfirmationEmail, setSignupConfirmationEmail] = useState<string | null>(null);
+  const [resendConfirmationLoading, setResendConfirmationLoading] = useState(false);
+  const [confirmationResent, setConfirmationResent] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const requestedRedirect = new URLSearchParams(location.search).get('redirect');
@@ -48,10 +49,11 @@ const AuthPage: React.FC = () => {
       });
       if (error) throw error;
       setResetSent(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Não foi possível enviar o email.';
       toast({
         title: 'Erro ao enviar',
-        description: error.message || 'Não foi possível enviar o email.',
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -66,23 +68,30 @@ const AuthPage: React.FC = () => {
 
     try {
       if (tab === 'signup') {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: `${window.location.origin}/auth` },
         });
         if (error) throw error;
-        toast({ title: 'Conta criada!', description: 'Verifique seu email para confirmar.' });
+        setPassword('');
+        if (data.session) {
+          navigate('/');
+        } else {
+          setSignupConfirmationEmail(email);
+          setConfirmationResent(false);
+          setTab('login');
+        }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         const { data: profile } = await supabase
           .from('profiles')
-          .select('aceite_termos, onboarding_completo')
+          .select('aceite_termos, aceite_termos_versao, aceite_termos_em, aceite_privacidade_versao, aceite_privacidade_em, onboarding_completo')
           .eq('id', data.user.id)
           .maybeSingle();
 
-        if (!profile || !profile.aceite_termos) {
+        if (!hasCurrentLegalAcceptance(profile)) {
           navigate('/aceite-termos');
         } else if (profile?.onboarding_completo) {
           navigate(redirect || '/app');
@@ -90,10 +99,11 @@ const AuthPage: React.FC = () => {
           navigate('/onboarding');
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Algo deu errado.';
       toast({
         title: 'Erro',
-        description: error.message || 'Algo deu errado.',
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -105,20 +115,68 @@ const AuthPage: React.FC = () => {
     setGoogleLoading(true);
     const redirectTo = `${window.location.origin}/auth${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`;
     try {
-      if (useSupabaseGoogleOAuth()) {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: { redirectTo },
-        });
+      if (usesLovableGoogleOAuth()) {
+        const { error } = await lovable.auth.signInWithOAuth('google', { redirect_uri: redirectTo });
         if (error) throw error;
         return;
       }
-    } catch (error: any) {
-      toast({ title: 'Erro', description: error.message || 'Algo deu errado.', variant: 'destructive' });
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo },
+      });
+      if (error) throw error;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Algo deu errado.';
+      toast({ title: 'Erro', description: message, variant: 'destructive' });
     } finally {
       setGoogleLoading(false);
     }
   };
+
+  const handleResendConfirmation = async () => {
+    if (!signupConfirmationEmail || resendConfirmationLoading) return;
+    setResendConfirmationLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: signupConfirmationEmail,
+        options: { emailRedirectTo: `${window.location.origin}/auth` },
+      });
+      if (error) throw error;
+      setConfirmationResent(true);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Não foi possível reenviar o email.';
+      toast({ title: 'Erro ao reenviar', description: message, variant: 'destructive' });
+    } finally {
+      setResendConfirmationLoading(false);
+    }
+  };
+
+  const renderAuthForm = (mode: 'login' | 'signup') => (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-1.5">
+        <label htmlFor="auth-email" className="text-sm font-medium text-foreground">Email</label>
+        <Input id="auth-email" type="email" autoComplete="email" placeholder="nome@exemplo.com" value={email}
+          onChange={(e) => setEmail(e.target.value)} required className="rounded-xl h-12" />
+      </div>
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <label htmlFor="auth-password" className="text-sm font-medium text-foreground">Senha</label>
+          {mode === 'login' && (
+            <button type="button" onClick={() => { setShowReset(true); setResetEmail(email); }} className="text-xs text-accent hover:underline">
+              Esqueceu a senha?
+            </button>
+          )}
+        </div>
+        <Input id="auth-password" type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} placeholder="••••••••" value={password}
+          onChange={(e) => setPassword(e.target.value)} required minLength={6} className="rounded-xl h-12" />
+      </div>
+      <Button type="submit" disabled={loading} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl h-12 text-base font-semibold uppercase tracking-wide">
+        {loading ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar conta'}
+      </Button>
+    </form>
+  );
 
   // ── Password reset screen ─────────────────────────────────────────
   if (showReset) {
@@ -209,71 +267,46 @@ const AuthPage: React.FC = () => {
       {/* Card */}
       <div className="bg-card rounded-2xl p-7 w-full max-w-[400px] shadow-2xl mt-4">
         {/* Tabs */}
-        <div className="flex mb-5 bg-secondary rounded-lg p-1">
-          <button
-            className={`flex-1 py-2.5 text-sm font-semibold rounded-md transition-colors ${
-              tab === 'login' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
-            }`}
-            onClick={() => setTab('login')}
-          >
-            Entrar
-          </button>
-          <button
-            className={`flex-1 py-2.5 text-sm font-semibold rounded-md transition-colors ${
-              tab === 'signup' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
-            }`}
-            onClick={() => setTab('signup')}
-          >
-            Criar conta
-          </button>
-        </div>
+        <Tabs
+          value={tab}
+          onValueChange={(value) => {
+            if (value === 'login' || value === 'signup') setTab(value);
+          }}
+        >
+          <TabsList aria-label="Acesso à conta" className="mb-5 flex h-auto w-full rounded-lg bg-secondary p-1">
+            <TabsTrigger value="login" className="flex-1 rounded-md py-2.5 text-sm font-semibold">Entrar</TabsTrigger>
+            <TabsTrigger value="signup" className="flex-1 rounded-md py-2.5 text-sm font-semibold">Criar conta</TabsTrigger>
+          </TabsList>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label htmlFor="auth-email" className="text-sm font-medium text-foreground">Email</label>
-            <Input
-              id="auth-email"
-              type="email"
-              placeholder="nome@exemplo.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="rounded-xl h-12"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="auth-password" className="text-sm font-medium text-foreground">Senha</label>
-              {tab === 'login' && (
-                <button
-                  type="button"
-                  onClick={() => { setShowReset(true); setResetEmail(email); }}
-                  className="text-xs text-accent hover:underline"
-                >
-                  Esqueceu a senha?
-                </button>
-              )}
-            </div>
-            <Input
-              id="auth-password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={6}
-              className="rounded-xl h-12"
-            />
-          </div>
-          <Button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl h-12 text-base font-semibold uppercase tracking-wide"
-          >
-            {loading ? 'Aguarde...' : tab === 'login' ? 'Entrar' : 'Criar conta'}
-          </Button>
-        </form>
+          <TabsContent value="login" className="mt-0">
+            {signupConfirmationEmail ? (
+              <div role="status" aria-live="polite" className="space-y-4 rounded-xl border border-primary/15 bg-primary/[0.045] p-4">
+                <div>
+                  <h2 className="text-sm font-semibold text-primary">Confirme seu e-mail</h2>
+                  <p className="mt-1 text-sm leading-5 text-muted-foreground">
+                    Enviamos um link para <strong>{signupConfirmationEmail}</strong>. Abra a mensagem, confirme o endereço e depois entre na sua conta. Se não encontrar, confira a pasta de spam.
+                  </p>
+                </div>
+                <Button type="button" onClick={handleResendConfirmation} disabled={resendConfirmationLoading || confirmationResent} className="w-full rounded-xl">
+                  {resendConfirmationLoading ? 'Enviando...' : confirmationResent ? 'Link reenviado' : 'Reenviar link de confirmação'}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setSignupConfirmationEmail(null)} className="w-full rounded-xl">
+                  Ir para entrar
+                </Button>
+              </div>
+            ) : renderAuthForm('login')}
+          </TabsContent>
+
+          <TabsContent value="signup" className="mt-0">
+              <div className="mb-5 rounded-xl border border-primary/15 bg-primary/[0.045] px-4 py-3">
+                <p className="text-sm font-semibold text-primary">7 dias grátis para testar o PRO · sem cartão</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  O período começa quando sua conta é criada. Não há cobrança automática; contratar o PRO depois é opcional.
+                </p>
+              </div>
+
+            {renderAuthForm('signup')}
+          </TabsContent>
 
         {/* Divider */}
         <div className="flex items-center gap-3 my-5">
@@ -298,10 +331,11 @@ const AuthPage: React.FC = () => {
           </svg>
           {googleLoading ? 'Aguarde...' : 'Entrar com Google'}
         </Button>
+        </Tabs>
       </div>
 
       <p className="text-primary-foreground/40 text-xs text-center mt-6 max-w-[300px]">
-        Seus dados ficam salvos com segurança. Ninguém além de você acessa.
+        Seus registros ficam associados à sua conta e são usados para fornecer os recursos do aplicativo.
       </p>
     </div>
   );

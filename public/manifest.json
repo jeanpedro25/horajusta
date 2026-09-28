@@ -1,7 +1,7 @@
 {
-  "name": "Hora Justa — Seu ponto digital",
+  "name": "Hora Justa — Registro de jornada",
   "short_name": "Hora Justa",
-  "description": "Registre sua jornada de trabalho, controle horas extras e proteja seus direitos. Simples, seguro e gratuito para CLT.",
+  "description": "Registre sua jornada, acompanhe horas extras e organize seu histórico de trabalho.",
   "start_url": "/app",
   "display": "standalone",
   "orientation": "portrait",
@@ -9,16 +9,16 @@
   "theme_color": "#0f5f5f",
   "icons": [
     {
-      "src": "/logo.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "/app-icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
     },
     {
-      "src": "/logo.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "/logo.jpg",
+      "sizes": "640x640",
+      "type": "image/jpeg",
+      "purpose": "any"
     }
   ]
 }

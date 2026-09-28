@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { LEGAL_COPY } from '@/lib/legal-copy';
+import { LEGAL_DOCUMENT_VERSION } from '@/lib/legal-versions';
 
 const TermosUsoPage: React.FC = () => {
   const navigate = useNavigate();
@@ -11,7 +12,7 @@ const TermosUsoPage: React.FC = () => {
     <div className="min-h-screen bg-background pb-10">
       <div className="bg-primary px-4 py-5">
         <div className="max-w-lg mx-auto flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="text-primary-foreground">
+          <button type="button" aria-label="Voltar" onClick={() => navigate(-1)} className="text-primary-foreground rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-primary">
             <ArrowLeft size={20} />
           </button>
           <h1 className="text-primary-foreground font-bold text-lg">Termos de Uso</h1>
@@ -20,6 +21,7 @@ const TermosUsoPage: React.FC = () => {
 
       <div className="px-4 mt-4 max-w-lg mx-auto">
         <div className="bg-card rounded-xl border border-border p-5 space-y-4 text-sm text-muted-foreground leading-relaxed">
+          <p className="text-xs">Versão {LEGAL_DOCUMENT_VERSION}</p>
           <p>
             O aplicativo Hora Justa é uma ferramenta de controle de jornada de trabalho destinada ao registro de horários e geração de estimativas de horas trabalhadas e valores relacionados.
           </p>
@@ -33,7 +35,7 @@ const TermosUsoPage: React.FC = () => {
           </ol>
 
           <div className="border-t border-border pt-4 mt-4">
-            <p className="font-semibold text-foreground mb-2">Assinaturas e Pagamentos</p>
+            <p className="font-semibold text-foreground mb-2">Compras e acesso PRO</p>
             <p>{LEGAL_COPY.subscription}</p>
           </div>
 
@@ -45,14 +47,14 @@ const TermosUsoPage: React.FC = () => {
           <p>
             O Hora Justa não se responsabiliza por decisões tomadas com base nas informações apresentadas no aplicativo.
           </p>
-          <p>O uso contínuo do aplicativo implica na aceitação destes termos.</p>
+          <p>O aceite destes Termos de Uso e da Política de Privacidade é solicitado e registrado no fluxo de cadastro. Uma nova versão pode exigir que o usuário leia e aceite os documentos atualizados antes de continuar.</p>
         </div>
 
         <Button
           onClick={() => navigate(-1)}
           className="w-full mt-4 rounded-xl h-12 font-semibold"
         >
-          Aceitar e continuar
+          Voltar
         </Button>
       </div>
     </div>

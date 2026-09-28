@@ -23,7 +23,6 @@ export interface ReportOptions {
   tipo: TipoRelatorio;
   incluirBancoHoras: boolean;
   incluirEventos: boolean;
-  incluirAnexos: boolean;
   incluirReconstituidos: boolean;
   incluirAtestados: boolean;
   incluirFerias: boolean;
@@ -45,7 +44,6 @@ const ReportOptionsModal: React.FC<Props> = ({ open, onOpenChange, onGenerate, g
   const [dataFim, setDataFim] = useState<Date | undefined>();
   const [incluirBancoHoras, setIncluirBancoHoras] = useState(true);
   const [incluirEventos, setIncluirEventos] = useState(true);
-  const [incluirAnexos, setIncluirAnexos] = useState(false);
   const [incluirReconstituidos, setIncluirReconstituidos] = useState(true);
   const [incluirAtestados, setIncluirAtestados] = useState(true);
   const [incluirFerias, setIncluirFerias] = useState(true);
@@ -57,7 +55,7 @@ const ReportOptionsModal: React.FC<Props> = ({ open, onOpenChange, onGenerate, g
     if (!canGenerate) return;
     onGenerate({
       periodo, dataInicio, dataFim, tipo,
-      incluirBancoHoras, incluirEventos, incluirAnexos,
+      incluirBancoHoras, incluirEventos,
       incluirReconstituidos, incluirAtestados, incluirFerias, incluirFinanceiro,
     });
   };
@@ -168,10 +166,6 @@ const ReportOptionsModal: React.FC<Props> = ({ open, onOpenChange, onGenerate, g
               <div className="flex items-center gap-2">
                 <Checkbox id="opt-eventos" checked={incluirEventos} onCheckedChange={(v) => setIncluirEventos(!!v)} />
                 <Label htmlFor="opt-eventos" className="cursor-pointer text-sm font-normal">Eventos do período</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox id="opt-anexos" checked={incluirAnexos} onCheckedChange={(v) => setIncluirAnexos(!!v)} />
-                <Label htmlFor="opt-anexos" className="cursor-pointer text-sm font-normal">Incluir anexos</Label>
               </div>
             </div>
           </div>

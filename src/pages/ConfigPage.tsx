@@ -16,10 +16,12 @@ import FeriasConfig from '@/components/FeriasConfig';
 import FeriadosLocaisConfig from '@/components/FeriadosLocaisConfig';
 import AvisoLegal from '@/components/AvisoLegal';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
+import { usePaywall } from '@/hooks/usePaywall';
 
 const ConfigPage: React.FC = () => {
   const { user, profile, signOut, refreshProfile } = useAuth();
   const adminAccess = useAdmin();
+  const { canExportExcel } = usePaywall();
   const navigate = useNavigate();
   const [deleting, setDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -69,7 +71,7 @@ const ConfigPage: React.FC = () => {
 
   useEffect(() => {
     if (profile) {
-      const p = profile as any;
+      const p = profile;
       setNome(p.nome || '');
       setEmpresa(p.empresa || '');
       setSalario(String(p.salario_base || ''));
@@ -145,7 +147,7 @@ const ConfigPage: React.FC = () => {
       adiantamentos: Number(adiantamentos) || 0,
       outros_descontos_detalhados: Number(outrosDescontos) || 0,
       dia_fechamento_folha: Number(diaFechamento) || 0,
-    } as any).eq('id', user.id);
+    }).eq('id', user.id);
     if (error) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     } else {
@@ -157,6 +159,14 @@ const ConfigPage: React.FC = () => {
 
   const handleExport = async () => {
     if (!user) return;
+    if (!canExportExcel) {
+      toast({
+        title: 'Exportação Excel é um recurso PRO',
+        description: 'Veja os planos para desbloquear a exportação da planilha.',
+      });
+      navigate('/planos');
+      return;
+    }
     try {
       toast({ title: '📊 Gerando planilha profissional...', description: 'Aguarde alguns segundos.' });
       const { data: sessionData } = await supabase.auth.getSession();
@@ -176,8 +186,11 @@ const ConfigPage: React.FC = () => {
       );
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Erro ao gerar planilha');
+        const payload: unknown = await res.json().catch(() => null);
+        const message = typeof payload === 'object' && payload !== null && 'error' in payload && typeof payload.error === 'string'
+          ? payload.error
+          : 'Erro ao gerar planilha';
+        throw new Error(message);
       }
 
       const blob = await res.blob();
@@ -190,8 +203,12 @@ const ConfigPage: React.FC = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       toast({ title: '✅ Planilha baixada!', description: 'Abra no Excel para ver os dados formatados.' });
-    } catch (err: any) {
-      toast({ title: 'Erro ao exportar', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({
+        title: 'Erro ao exportar',
+        description: err instanceof Error ? err.message : 'Não foi possível gerar a planilha. Tente novamente.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -434,7 +451,7 @@ const ConfigPage: React.FC = () => {
               <span className="font-semibold text-sm">Meus dados</span>
             </div>
             <Button variant="outline" size="sm" onClick={handleExport} className="rounded-lg text-xs">
-              Exportar Excel
+              {canExportExcel ? 'Exportar Excel' : 'Desbloquear Excel PRO'}
             </Button>
           </div>
         </div>
@@ -488,7 +505,7 @@ const ConfigPage: React.FC = () => {
           className="w-full rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10 gap-2 text-xs"
         >
           <Trash2 size={14} />
-          Deletar minha conta e todos os dados
+          Excluir conta e dados do app
         </Button>
 
         <DeleteAccountModal
@@ -498,13 +515,20 @@ const ConfigPage: React.FC = () => {
           onConfirm={async () => {
             setDeleting(true);
             try {
-              const { error } = await supabase.rpc('delete_my_account' as never);
+              const { error } = await supabase.functions.invoke('delete-account');
               if (error) throw error;
               setShowDeleteModal(false);
               await signOut();
               window.location.replace('/');
-            } catch (e: any) {
-              toast({ title: 'Erro', description: e.message, variant: 'destructive' });
+            } catch (e: unknown) {
+              const message = e instanceof Error ? e.message : '';
+              toast({
+                title: 'Não foi possível excluir a conta',
+                description: message.includes('Edge Function returned a non-2xx status code')
+                  ? 'Não foi possível confirmar o resultado. Se ainda conseguir entrar, tente novamente; caso contrário, contate o suporte.'
+                  : message || 'Tente novamente ou contate o suporte.',
+                variant: 'destructive',
+              });
               setDeleting(false);
             }
           }}

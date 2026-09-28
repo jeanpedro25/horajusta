@@ -12,7 +12,7 @@ import EditMarcacoesDia from '@/components/EditMarcacoesDia';
 import { getFeriadoComLocais } from '@/lib/feriados';
 import {
   calcularJornada, formatarDuracaoJornada,
-  formatarHoraLocal, getCargaDiaria, type Marcacao,
+  formatarHoraLocal, getCargaDiaria, type Marcacao, type TipoJornada,
 } from '@/lib/jornada';
 
 type FilterPeriod = 'week' | 'month' | 'prev_month' | 'custom';
@@ -73,9 +73,12 @@ const HistoricoPage: React.FC = () => {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [feriadosLocais, setFeriadosLocais] = useState<{ data: string; nome: string; recorrente: boolean }[]>([]);
 
-  const p = profile as any;
+  const p = profile;
+  const tipoJornada: TipoJornada = p?.tipo_jornada === 'escala' || p?.tipo_jornada === 'turno'
+    ? p.tipo_jornada
+    : 'jornada_fixa';
   const carga = getCargaDiaria(
-    (p?.tipo_jornada || 'jornada_fixa') as any,
+    tipoJornada,
     p?.escala_tipo || null,
     p?.carga_horaria_diaria ?? 8,
   );
@@ -85,7 +88,7 @@ const HistoricoPage: React.FC = () => {
       ? formatLocalDate(p.created_at)
       : null;
 
-  const getDateRange = (period: FilterPeriod) => {
+  const getDateRange = useCallback((period: FilterPeriod) => {
     const now = new Date();
     if (period === 'custom' && dataInicio && dataFim) return { start: dataInicio, end: dataFim };
     if (period === 'week') {
@@ -103,7 +106,7 @@ const HistoricoPage: React.FC = () => {
     const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const end = new Date(now.getFullYear(), now.getMonth(), 0);
     return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] };
-  };
+  }, [dataInicio, dataFim]);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -127,7 +130,7 @@ const HistoricoPage: React.FC = () => {
     setAllMarcacoes((marcRes.data as Marcacao[]) || []);
 
     const dias = new Map<string, FeriasInfo>();
-    (feriasRes.data || []).forEach((f: any) => {
+    (feriasRes.data || []).forEach((f) => {
       const hoje = new Date(); hoje.setHours(12, 0, 0, 0);
       const fInicio = new Date(f.data_inicio + 'T12:00:00');
       const fFim = new Date(f.data_fim + 'T12:00:00');
@@ -135,7 +138,7 @@ const HistoricoPage: React.FC = () => {
       if (hoje > fFim) autoStatus = 'concluida';
       else if (hoje >= fInicio && hoje <= fFim) autoStatus = 'ativa';
       else if (hoje < fInicio) autoStatus = 'agendada';
-      let d = new Date(f.data_inicio + 'T12:00:00');
+      const d = new Date(f.data_inicio + 'T12:00:00');
       while (d <= fFim) {
         const ds = d.toISOString().split('T')[0];
         if (ds >= start && ds <= end) {
@@ -147,18 +150,18 @@ const HistoricoPage: React.FC = () => {
     setFeriasDias(dias);
 
     const compMap = new Map<string, CompensacaoInfo>();
-    (compRes.data || []).forEach((c: any) => {
+    (compRes.data || []).forEach((c) => {
       compMap.set(c.data, { data: c.data, minutos: c.minutos, observacao: c.observacao });
     });
     setCompensacoes(compMap);
-    setFeriadosLocais((feriadosLocaisRes.data as any[]) || []);
+    setFeriadosLocais(feriadosLocaisRes.data ?? []);
 
     const atestMap = new Map<string, string>();
-    (atestadoRes.data || []).forEach((a: any) => {
+    (atestadoRes.data || []).forEach((a) => {
       if (a.anexo_url) atestMap.set(a.data, a.atestado_periodo || 'integral');
     });
     setAtestados(atestMap);
-  }, [user, filter, dataInicio, dataFim]);
+  }, [user, filter, getDateRange]);
 
   useEffect(() => {
     if (!user) return;
@@ -267,7 +270,7 @@ const HistoricoPage: React.FC = () => {
     });
 
     return summaries.reverse();
-  }, [allMarcacoes, carga, dataCriacaoContaStr, feriasDias, compensacoes, atestados, feriadosLocais, filter, dataInicio, dataFim, hojeStr]);
+  }, [allMarcacoes, carga, dataCriacaoContaStr, feriasDias, compensacoes, atestados, feriadosLocais, filter, getDateRange, hojeStr]);
 
   // Apply quick filter
   const filteredDays = useMemo(() => {
@@ -286,7 +289,7 @@ const HistoricoPage: React.FC = () => {
   const diasComRegistroReal = daySummaries.filter(d => {
     if (d.marcacoes.length === 0) return false;
     // Exclude days where ALL marcacoes are reconstructed
-    const origens = d.marcacoes.map((m: any) => m.origem || 'manual');
+    const origens = d.marcacoes.map((m) => m.origem || 'manual');
     return !origens.every((o: string) => o === 'importacao_automatica');
   });
   const totalHoras = diasComRegistroReal.reduce((s, d) => s + d.totalMin / 60, 0);

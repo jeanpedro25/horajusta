@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calcularINSS, calcularIRRF } from '@/lib/descontos';
+import { calcularINSS, calcularIRRF, calcularIRRFFixaComDependentes } from '@/lib/descontos';
 
 // Testes de sanidade: validam monotonicidade e alguns pontos conhecidos (tabela 2026).
 describe('descontos', () => {
@@ -37,6 +37,20 @@ describe('descontos', () => {
     const ir2 = calcularIRRF(s2, calcularINSS(s2));
     expect(ir1).toBeGreaterThanOrEqual(0);
     expect(ir2).toBeGreaterThanOrEqual(ir1);
+  });
+
+  it('aplica o desconto simplificado quando é maior que o INSS e zera IRRF até R$ 5.000 em 2026', () => {
+    expect(calcularIRRF(3036, 257.73)).toBe(0);
+    expect(calcularIRRF(4000, 373.41)).toBe(0);
+    expect(calcularIRRF(5000, 509.60)).toBe(0);
+  });
+
+  it('aplica a redução parcial de 2026 sobre os rendimentos tributáveis entre R$ 5.000 e R$ 7.350', () => {
+    expect(calcularIRRF(6000, calcularINSS(6000))).toBe(385.10);
+  });
+
+  it('usa a dedução legal por dependentes quando supera o desconto simplificado mensal', () => {
+    expect(calcularIRRFFixaComDependentes(6000, calcularINSS(6000), 1)).toBe(332.97);
   });
 });
 

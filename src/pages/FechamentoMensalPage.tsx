@@ -6,7 +6,7 @@ import AppHeader from '@/components/AppHeader';
 import BottomNav from '@/components/BottomNav';
 import {
   calcularJornada, formatarDuracaoJornada, getCargaDiaria,
-  isScheduledWorkday, type Marcacao,
+  isScheduledWorkday, type Marcacao, type TipoJornada,
 } from '@/lib/jornada';
 import { getFeriadoComLocais } from '@/lib/feriados';
 import {
@@ -76,16 +76,14 @@ function getMesesDesdeInicio(desde: string): string[] {
 const FechamentoMensalPage: React.FC = () => {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
-  const p = profile as any;
+  const p = profile;
 
   const salario = profile?.salario_base ?? 0;
   const percentual = profile?.hora_extra_percentual ?? 50;
-  const carga = getCargaDiaria(
-    p.tipo_jornada || 'jornada_fixa',
-    p.escala_tipo || null,
-    p.carga_horaria_diaria ?? 8,
-    p
-  );
+  const tipoJornada: TipoJornada = p?.tipo_jornada === 'escala' || p?.tipo_jornada === 'turno'
+    ? p.tipo_jornada
+    : 'jornada_fixa';
+  const carga = getCargaDiaria(tipoJornada, p?.escala_tipo || null, p?.carga_horaria_diaria ?? 8, p ?? undefined);
   const valorHE = salario > 0 ? (salario / 220) * (1 + percentual / 100) : 0;
 
   const [fechamentos, setFechamentos] = useState<FechamentoRecord[]>([]);
@@ -115,12 +113,12 @@ const FechamentoMensalPage: React.FC = () => {
       .eq('user_id', user.id)
       .is('deleted_at', null)
       .neq('origem', 'importacao_automatica')
-      .order('horario', { ascending: true }) as any;
+      .order('horario', { ascending: true });
 
     const { data: ferData } = await supabase
       .from('feriados_locais')
       .select('data, nome, recorrente')
-      .eq('user_id', user.id) as any;
+      .eq('user_id', user.id);
 
     setFeriadosLocais(ferData || []);
 

@@ -1,23 +1,51 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildCorsHeaders } from "../_shared/cors.ts";
+import { hasProductAccess } from "../_shared/product-access.ts";
 
-function corsHeaders(origin: string | null) {
-  const appUrl = Deno.env.get("APP_URL") || "https://horajusta.com";
-  return {
-    "Access-Control-Allow-Origin": origin === appUrl ? origin : appUrl,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Vary": "Origin",
+type ReportRow<Row> = {
+  Row: Row;
+  Insert: Partial<Row>;
+  Update: Partial<Row>;
+  Relationships: [];
+};
+
+type ReportProfile = {
+  id: string;
+  created_at: string | null;
+  plano: string | null;
+  plano_vencimento: string | null;
+  is_pro: boolean;
+  subscription_status: string;
+  carga_horaria_diaria: number | null;
+  salario_base: number | null;
+  hora_extra_percentual: number | null;
+  banco_horas_saldo_inicial: number | null;
+};
+
+type ReportMark = {
+  user_id: string;
+  data: string;
+  tipo: string;
+  horario: string;
+  deleted_at: string | null;
+};
+
+type ReportBankEntry = { user_id: string; tipo: string; expira_em: string; minutos: number };
+
+type ReportDatabase = {
+  public: {
+    Tables: {
+      profiles: ReportRow<ReportProfile>;
+      marcacoes_ponto: ReportRow<ReportMark>;
+      banco_horas: ReportRow<ReportBankEntry>;
+    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
-}
-
-function hasReportAccess(profile: Record<string, unknown>): boolean {
-  const expiresAt = profile.plano_vencimento ? new Date(String(profile.plano_vencimento)) : null;
-  const notExpired = !expiresAt || expiresAt > new Date();
-  const paid = (profile.plano === "pro" || profile.plano === "anual" || profile.is_pro === true || profile.subscription_status === "active") && notExpired;
-  const createdAt = profile.created_at ? new Date(String(profile.created_at)) : null;
-  const trial = createdAt && Date.now() - createdAt.getTime() < 7 * 24 * 60 * 60 * 1000;
-  return Boolean(paid || trial);
-}
+};
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "").replace(/[&<>'"]/g, character => ({
@@ -26,7 +54,9 @@ function escapeHtml(value: unknown): string {
 }
 
 serve(async (req) => {
-  const cors = corsHeaders(req.headers.get("Origin"));
+  const appUrl = Deno.env.get("APP_URL");
+  if (!appUrl) return new Response(JSON.stringify({ error: "Serviço indisponível" }), { status: 503 });
+  const cors = buildCorsHeaders(req.headers.get("Origin"), appUrl);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: cors });
   }
@@ -34,17 +64,30 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header");
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    if (!token) return new Response(JSON.stringify({ error: "Sessão inválida. Entre novamente." }), {
+      status: 401,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !supabaseKey) return new Response(JSON.stringify({ error: "Serviço indisponível" }), {
+      status: 503,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+    const supabase = createClient<ReportDatabase>(supabaseUrl, supabaseKey);
 
-    const token = authHeader.replace("Bearer ", "");
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) throw new Error("Unauthorized");
+    if (userError || !user) return new Response(JSON.stringify({ error: "Sessão inválida. Entre novamente." }), {
+      status: 401,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
 
-    const { month, year } = await req.json();
+    const requestBody = await req.json().catch(() => null);
+    const { month, year } = requestBody && typeof requestBody === "object"
+      ? requestBody as { month?: unknown; year?: unknown }
+      : {};
     if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year) || year < 2020 || year > 2100) {
       return new Response(JSON.stringify({ error: "Período inválido" }), {
         status: 400,
@@ -57,12 +100,19 @@ serve(async (req) => {
       : `${year}-${String(month + 1).padStart(2, '0')}-01`;
 
     // Fetch profile
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", user.id)
-      .single();
-    if (!profile || !hasReportAccess(profile as Record<string, unknown>)) {
+      .maybeSingle();
+    if (profileError) {
+      console.error("Report profile lookup failed", { code: profileError.code });
+      return new Response(JSON.stringify({ error: "Não foi possível carregar seus dados agora. Tente novamente." }), {
+        status: 503,
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
+    if (!profile || !hasProductAccess(profile)) {
       return new Response(JSON.stringify({ error: "Recurso disponível para usuários PRO" }), {
         status: 403,
         headers: { ...cors, "Content-Type": "application/json" },
@@ -70,7 +120,7 @@ serve(async (req) => {
     }
 
     // Fetch marcacoes_ponto (the actual data source)
-    const { data: marcacoes } = await supabase
+    const { data: marcacoes, error: marcacoesError } = await supabase
       .from("marcacoes_ponto")
       .select("*")
       .eq("user_id", user.id)
@@ -80,11 +130,21 @@ serve(async (req) => {
       .order("horario", { ascending: true });
 
     // Fetch banco_horas entries
-    const { data: bancoEntries } = await supabase
+    const { data: bancoEntries, error: bancoError } = await supabase
       .from("banco_horas")
       .select("*")
       .eq("user_id", user.id)
       .order("data", { ascending: true });
+
+    if (marcacoesError || bancoError) {
+      console.error("Report source data lookup failed", {
+        codes: [marcacoesError?.code, bancoError?.code].filter(Boolean),
+      });
+      return new Response(JSON.stringify({ error: "Não foi possível carregar seus dados agora. Tente novamente." }), {
+        status: 503,
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
 
     const carga = profile?.carga_horaria_diaria ?? 8;
     const salario = profile?.salario_base ?? 0;
@@ -92,8 +152,8 @@ serve(async (req) => {
     const saldoInicial = profile?.banco_horas_saldo_inicial ?? 0;
 
     // Group marcacoes by day and calculate
-    const dayMap: Record<string, any[]> = {};
-    (marcacoes || []).forEach((m: any) => {
+    const dayMap: Record<string, ReportMark[]> = {};
+    (marcacoes || []).forEach((m) => {
       if (!dayMap[m.data]) dayMap[m.data] = [];
       dayMap[m.data].push(m);
     });
@@ -106,7 +166,7 @@ serve(async (req) => {
     let totalMinExtra = 0;
 
     // Simple jornada calculator for edge function
-    function calcJornada(marks: any[]) {
+    function calcJornada(marks: ReportMark[]) {
       let totalTrab = 0;
       let totalInt = 0;
       let inicioAtual: string | null = null;
@@ -172,7 +232,7 @@ serve(async (req) => {
 
     // Banco de horas summary
     let bhSaldo = saldoInicial;
-    (bancoEntries || []).forEach((e: any) => {
+    (bancoEntries || []).forEach((e) => {
       if (e.tipo === 'acumulo') {
         const exp = new Date(e.expira_em).getTime();
         if (exp >= Date.now()) bhSaldo += e.minutos;
@@ -300,9 +360,9 @@ serve(async (req) => {
       headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Erro ao gerar relatório";
-    return new Response(JSON.stringify({ error: message }), {
-      status: 400,
+    console.error("Report generation failed", { name: error instanceof Error ? error.name : "unknown" });
+    return new Response(JSON.stringify({ error: "Não foi possível gerar o relatório agora. Tente novamente." }), {
+      status: 500,
       headers: { ...cors, "Content-Type": "application/json" },
     });
   }

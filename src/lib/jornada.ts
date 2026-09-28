@@ -5,6 +5,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { fusoLocal } from '@/lib/dataHora';
+import type { Tables, TablesInsert } from '@/integrations/supabase/types';
 
 // ─── TYPES ──────────────────────────────────────
 
@@ -20,6 +21,8 @@ export interface Marcacao {
   deleted_at: string | null;
   created_at: string;
 }
+
+type PerfilEscala = Pick<Tables<'profiles'>, 'tipo_jornada' | 'escala_tipo' | 'escala_inicio' | 'historico_inicio' | 'created_at'>;
 
 export interface Periodo {
   inicio: string;
@@ -76,7 +79,7 @@ export async function buscarMarcacoesDia(userId: string, data: string): Promise<
     .neq('origem', 'importacao_automatica')
     .order('horario', { ascending: true });
   if (error) throw new Error(`Erro ao buscar marcações: ${error.message}`);
-  return (marcacoes as Marcacao[]) || [];
+  return (marcacoes || []) as Marcacao[];
 }
 
 // ─── CALCULAR JORNADA A PARTIR DAS MARCAÇÕES ───
@@ -298,7 +301,7 @@ export async function registrarMarcacao(userId: string, tipo: TipoMarcacao, orig
       tipo,
       horario: agora,
       origem,
-    } as any)
+    } satisfies TablesInsert<'marcacoes_ponto'>)
     .select()
     .single();
 
@@ -322,7 +325,7 @@ export async function inserirMarcacaoManual(
       tipo,
       horario,
       origem: 'manual',
-    } as any)
+    } satisfies TablesInsert<'marcacoes_ponto'>)
     .select()
     .single();
 
@@ -368,7 +371,7 @@ export function getCargaDiaria(
   tipoJornada: TipoJornada,
   escalaTipo: string | null,
   cargaHorariaDiaria: number,
-  _profile?: any,
+  _profile?: PerfilEscala,
 ): number {
   if (tipoJornada === 'escala' && escalaTipo === '12x36') return 12;
   return cargaHorariaDiaria;
@@ -386,7 +389,7 @@ export function getMarcacaoVisual(tipo: TipoMarcacao) {
 }
 
 /** Alias: retorna true se a data for um dia útil de trabalho para este perfil */
-export function isScheduledWorkday(dateStr: string, profile?: any): boolean {
+export function isScheduledWorkday(dateStr: string, profile?: PerfilEscala | null): boolean {
   if (!profile) return true;
   const date = new Date(dateStr + 'T12:00:00');
   const dow = date.getDay(); // 0=Sun,6=Sat

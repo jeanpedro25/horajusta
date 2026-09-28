@@ -50,10 +50,10 @@ const ChefEntrarPage: React.FC = () => {
         return;
       }
       navigate('/chefe', { replace: true });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Erro',
-        description: err.message || 'Credenciais inválidas.',
+        description: err instanceof Error ? err.message : 'Credenciais inválidas.',
         variant: 'destructive',
       });
     } finally {

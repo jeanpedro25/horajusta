@@ -55,7 +55,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (error) {
       console.error('Erro ao carregar perfil', error);
-      setProfile(null);
+      // Uma falha transitória ao atualizar não deve apagar um perfil já carregado.
+      // Em troca de usuário, syncAuthState limpa o perfil antes desta consulta.
       return null;
     }
 
@@ -73,7 +74,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // If FK constraint fails, the auth user no longer exists in DB — sign out
       if (createError.code === '23503') {
         console.warn('Sessão inválida detectada — encerrando sessão');
-        try { await supabase.auth.signOut(); } catch {}
+        try {
+          await supabase.auth.signOut();
+        } catch {
+          // A sessão local é limpa abaixo mesmo se o encerramento remoto falhar.
+        }
         setSession(null);
         setUser(null);
       }

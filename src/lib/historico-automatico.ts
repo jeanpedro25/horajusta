@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
-import { getFeriadosDoAno } from '@/lib/feriados';
+import { getFeriadosDoAno, getFeriadosNoPeriodo, type FeriadoLocalConfig } from '@/lib/feriados';
+import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 
 export interface HistoricoConfig {
   dataInicio: string;       // 'YYYY-MM-DD'
@@ -63,6 +64,15 @@ function getFeriadosDatas(anoInicio: number, anoFim: number): Set<string> {
   return set;
 }
 
+async function carregarFeriadosLocais(userId: string): Promise<FeriadoLocalConfig[]> {
+  const { data, error } = await supabase
+    .from('feriados_locais')
+    .select('data,nome,recorrente')
+    .eq('user_id', userId);
+  if (error) throw new Error(`Erro ao carregar feriados locais: ${error.message}`);
+  return data ?? [];
+}
+
 export async function gerarHistoricoAutomatico(
   userId: string,
   config: HistoricoConfig,
@@ -88,10 +98,11 @@ export async function gerarHistoricoMultiPeriodo(
   userId: string,
   periodos: PeriodoTrabalho[],
   saldoBancoMin: number,
-  onProgress?: (pct: number, msg: string) => void
+  onProgress?: (pct: number, msg: string) => void,
+  feriadosLocais?: FeriadoLocalConfig[],
 ): Promise<{ totalDias: number; totalMarcacoes: number }> {
   const BATCH_SIZE = 200;
-  const marcacoes: any[] = [];
+  const marcacoes: TablesInsert<'marcacoes_ponto'>[] = [];
 
   // Sort periods by start date
   const sorted = [...periodos].sort((a, b) => a.dataInicio.localeCompare(b.dataInicio));
@@ -100,7 +111,26 @@ export async function gerarHistoricoMultiPeriodo(
 
   const anoInicio = parseInt(globalStart.substring(0, 4));
   const anoFim = parseInt(globalEnd.substring(0, 4));
+  // Resolve all exclusions before retry cleanup, so a read/permission error
+  // cannot hide rows from an earlier successful batch.
+  const locais = feriadosLocais ?? await carregarFeriadosLocais(userId);
   const feriados = getFeriadosDatas(anoInicio, anoFim);
+  for (const data of getFeriadosNoPeriodo(globalStart, globalEnd, locais).keys()) {
+    feriados.add(data);
+  }
+
+  // An earlier onboarding attempt may have inserted only some batches before
+  // a network error. Soft-delete only its generated rows in this date range so
+  // retrying cannot double-count them or touch real/manual/corrected records.
+  const { error: cleanupError } = await supabase
+    .from('marcacoes_ponto')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('user_id', userId)
+    .eq('origem', 'importacao_automatica')
+    .gte('data', globalStart)
+    .lte('data', globalEnd)
+    .is('deleted_at', null);
+  if (cleanupError) throw new Error(`Erro ao preparar nova tentativa do histórico: ${cleanupError.message}`);
 
   let totalDias = 0;
 
@@ -112,7 +142,7 @@ export async function gerarHistoricoMultiPeriodo(
       periodo.intervaloMin
     );
 
-    let dataAtual = new Date(periodo.dataInicio + 'T12:00:00');
+    const dataAtual = new Date(periodo.dataInicio + 'T12:00:00');
     const dataFim = new Date(periodo.dataFim + 'T12:00:00');
 
     while (dataAtual <= dataFim) {
@@ -165,7 +195,7 @@ export async function gerarHistoricoMultiPeriodo(
   onProgress?.(97, 'Salvando configurações...');
 
   // Save banco de horas initial balance
-  const updateData: any = {
+  const updateData: TablesUpdate<'profiles'> = {
     historico_importado: true,
     historico_inicio: globalStart,
   };
@@ -187,10 +217,18 @@ export async function gerarHistoricoMultiPeriodo(
   return { totalDias, totalMarcacoes: marcacoes.length };
 }
 
-export function contarDiasUteis(dataInicio: string, dataFim: string, diasSemana: number[]): number {
+export function contarDiasUteis(
+  dataInicio: string,
+  dataFim: string,
+  diasSemana: number[],
+  feriadosLocais: FeriadoLocalConfig[] = [],
+): number {
   const anoInicio = parseInt(dataInicio.substring(0, 4));
   const anoFim = parseInt(dataFim.substring(0, 4));
   const feriados = getFeriadosDatas(anoInicio, anoFim);
+  for (const data of getFeriadosNoPeriodo(dataInicio, dataFim, feriadosLocais).keys()) {
+    feriados.add(data);
+  }
 
   let count = 0;
   const d = new Date(dataInicio + 'T12:00:00');

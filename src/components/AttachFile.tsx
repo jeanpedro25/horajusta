@@ -5,6 +5,8 @@ import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Paperclip, Upload, Loader2, Camera, ExternalLink, Trash2 } from 'lucide-react';
+import { ATESTADO_ACCEPT, extensaoAtestado, validarArquivoAtestado } from '@/lib/atestado-upload';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 
 export type AtestadoPeriodo = 'manha' | 'tarde' | 'integral';
 
@@ -36,6 +38,12 @@ const AttachFile: React.FC<AttachFileProps> = ({ registroIds, currentUrl, curren
   const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const validationError = validarArquivoAtestado(file);
+    if (validationError) {
+      toast({ title: 'Arquivo não aceito', description: validationError, variant: 'destructive' });
+      e.target.value = '';
+      return;
+    }
     setPendingFile(file);
     setShowSelector(true);
   };
@@ -44,7 +52,11 @@ const AttachFile: React.FC<AttachFileProps> = ({ registroIds, currentUrl, curren
     if (!pendingFile || !user || registroIds.length === 0) return;
     setUploading(true);
 
-    const ext = pendingFile.name.split('.').pop();
+    const ext = extensaoAtestado(pendingFile);
+    if (!ext) {
+      toast({ title: 'Arquivo não aceito', description: 'Selecione PDF, JPEG, PNG ou WebP.', variant: 'destructive' });
+      return;
+    }
     const path = `${user.id}/${registroIds[0]}-${Date.now()}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
@@ -61,7 +73,7 @@ const AttachFile: React.FC<AttachFileProps> = ({ registroIds, currentUrl, curren
       await supabase.from('registros_ponto').update({
         anexo_url: path,
         atestado_periodo: periodo,
-      } as any).eq('id', id).eq('user_id', user.id);
+      } satisfies TablesUpdate<'registros_ponto'>).eq('id', id).eq('user_id', user.id);
     }
 
     toast({
@@ -86,7 +98,7 @@ const AttachFile: React.FC<AttachFileProps> = ({ registroIds, currentUrl, curren
       await supabase.from('registros_ponto').update({
         anexo_url: null,
         atestado_periodo: null,
-      } as any).eq('id', id).eq('user_id', user.id);
+      } satisfies TablesUpdate<'registros_ponto'>).eq('id', id).eq('user_id', user.id);
     }
 
     toast({ title: 'Atestado removido' });
@@ -190,8 +202,8 @@ const AttachFile: React.FC<AttachFileProps> = ({ registroIds, currentUrl, curren
         Foto do atestado, PDF ou documento. Serve como prova nos seus registros.
       </p>
 
-      <input ref={fileRef} type="file" accept="image/*,.pdf,.doc,.docx" onChange={handleFileSelected} className="hidden" />
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleFileSelected} className="hidden" />
+      <input ref={fileRef} type="file" accept={ATESTADO_ACCEPT} onChange={handleFileSelected} className="hidden" />
+      <input ref={cameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={handleFileSelected} className="hidden" />
 
       <div className="grid grid-cols-2 gap-3">
         {isMobile && (

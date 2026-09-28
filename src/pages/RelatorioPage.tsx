@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { getCicloQuery } from '@/lib/ciclo-folha';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import AppHeader from '@/components/AppHeader';
 import BottomNav from '@/components/BottomNav';
@@ -13,7 +14,7 @@ import {
 import {
   calcularJornada, formatarHoraLocal,
   formatarDuracaoJornada, getCargaDiaria, hojeLocal, isDiaTrabalhoEscala,
-  type Marcacao,
+  type Marcacao, type TipoJornada, type TipoMarcacao,
 } from '@/lib/jornada';
 import { calcularINSS, calcularIRRF } from '@/lib/descontos';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,7 @@ import autoTable from 'jspdf-autotable';
 import { usePaywall } from '@/hooks/usePaywall';
 import PaywallModal from '@/components/PaywallModal';
 import { startOfWeek, endOfWeek, subMonths } from 'date-fns';
-import { getFeriadosDoAno, type Feriado } from '@/lib/feriados';
+import { getFeriadosNoPeriodo, type FeriadoLocalConfig } from '@/lib/feriados';
 import { analisarRadarTrabalhista, RADAR_ISENCAO_RODAPE, type AlertaRadar } from '@/lib/radar-trabalhista';
 
 const diasSemana = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
@@ -59,34 +60,35 @@ interface DaySummary {
   ehDiaTrabalho?: boolean;
 }
 
-interface ReportProfileConfig {
-  tipo_jornada?: string | null;
-  dias_trabalhados_semana?: number | null;
-  escala_tipo?: string | null;
-  escala_dias_trabalho?: number | null;
-  escala_dias_folga?: number | null;
-  escala_inicio?: string | null;
+type ReportProfileConfig = Partial<Pick<Tables<'profiles'>,
+  'tipo_jornada' | 'dias_trabalhados_semana' | 'escala_tipo' | 'escala_dias_trabalho' | 'escala_dias_folga' | 'escala_inicio'
+>>;
+type RegistroAtestado = Pick<Tables<'registros_ponto'>, 'data' | 'atestado_periodo'>;
+type PeriodoFerias = Pick<Tables<'ferias'>, 'data_inicio' | 'data_fim'>;
+type CompensacaoPeriodo = Pick<Tables<'compensacoes_banco_horas'>, 'data'>;
+
+function isTipoMarcacao(tipo: string): tipo is TipoMarcacao {
+  return tipo === 'entrada' || tipo === 'saida_intervalo' || tipo === 'volta_intervalo' || tipo === 'saida_final';
+}
+
+function toMarcacao(row: Tables<'marcacoes_ponto'>): Marcacao {
+  if (!isTipoMarcacao(row.tipo)) throw new Error(`Tipo de marcação desconhecido: ${row.tipo}`);
+  return { ...row, tipo: row.tipo, origem: row.origem ?? 'manual', created_at: row.created_at ?? '' };
+}
+
+type JsPdfWithLastTable = jsPDF & { lastAutoTable?: { finalY: number } };
+
+function lastAutoTableY(doc: jsPDF): number {
+  const finalY = (doc as JsPdfWithLastTable).lastAutoTable?.finalY;
+  if (finalY == null) throw new Error('A tabela do relatório não foi renderizada.');
+  return finalY;
 }
 
 function classifyOrigin(marks: Marcacao[]): 'real' | 'reconstituido' | 'manual' {
-  const origens = marks.map(m => (m as any).origem || 'manual');
+  const origens = marks.map(m => m.origem || 'manual');
   if (origens.every(o => o === 'importacao_automatica')) return 'reconstituido';
   if (origens.some(o => o === 'botao')) return 'real';
   return 'manual';
-}
-
-function getFeriadosNoPeriodo(startDate: string, endDate: string): Map<string, string> {
-  const result = new Map<string, string>();
-  const anoInicio = parseInt(startDate.substring(0, 4));
-  const anoFim = parseInt(endDate.substring(0, 4));
-  for (let ano = anoInicio; ano <= anoFim; ano++) {
-    for (const f of getFeriadosDoAno(ano)) {
-      if (f.data >= startDate && f.data <= endDate) {
-        result.set(f.data, f.nome);
-      }
-    }
-  }
-  return result;
 }
 
 function isScheduledWorkday(dateStr: string, profile?: ReportProfileConfig): boolean {
@@ -119,12 +121,12 @@ function getOffDayLabel(dateStr: string, profile?: ReportProfileConfig): string 
 function buildDaySummaries(
   marcacoes: Marcacao[],
   cargaHoras: number,
-  registrosPonto?: any[],
+  registrosPonto?: RegistroAtestado[],
   feriadosMap?: Map<string, string>,
   startDate?: string,
   endDate?: string,
-  feriasList?: any[],
-  compensacoesList?: any[],
+  feriasList?: PeriodoFerias[],
+  compensacoesList?: CompensacaoPeriodo[],
   profileConfig?: ReportProfileConfig,
 ): DaySummary[] {
   const map = new Map<string, Marcacao[]>();
@@ -135,7 +137,7 @@ function buildDaySummaries(
 
   // Build atestado map from registros_ponto
   const atestadoMap = new Map<string, string | null>();
-  (registrosPonto || []).forEach((r: any) => {
+  (registrosPonto || []).forEach((r) => {
     if (r.atestado_periodo) {
       atestadoMap.set(r.data, r.atestado_periodo);
     }
@@ -143,8 +145,8 @@ function buildDaySummaries(
 
   // Build férias set
   const feriasSet = new Set<string>();
-  (feriasList || []).forEach((f: any) => {
-    let d = new Date(f.data_inicio + 'T12:00:00');
+  (feriasList || []).forEach((f) => {
+    const d = new Date(f.data_inicio + 'T12:00:00');
     const end = new Date(f.data_fim + 'T12:00:00');
     while (d <= end) {
       feriasSet.add(d.toISOString().split('T')[0]);
@@ -154,7 +156,7 @@ function buildDaySummaries(
 
   // Build compensações set
   const compSet = new Set<string>();
-  (compensacoesList || []).forEach((c: any) => {
+  (compensacoesList || []).forEach((c) => {
     compSet.add(c.data);
   });
 
@@ -162,7 +164,7 @@ function buildDaySummaries(
 
   // If we have start/end dates, iterate ALL days
   if (startDate && endDate) {
-    let current = new Date(startDate + 'T12:00:00');
+    const current = new Date(startDate + 'T12:00:00');
     const endD = new Date(endDate + 'T12:00:00');
 
     while (current <= endD) {
@@ -342,15 +344,15 @@ function addWatermark(doc: jsPDF) {
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
     doc.saveGraphicsState();
-    doc.setGState(new (doc as any).GState({ opacity: 0.06 }));
+    doc.setGState(doc.GState({ opacity: 0.06 }));
     doc.setFontSize(28);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(120, 120, 120);
     const text = 'EXTRATO PARA CONFERENCIA PESSOAL - SEM VALOR OFICIAL';
     const centerX = largura / 2;
     const centerY = altura / 2;
-    (doc as any).text(text, centerX, centerY, { align: 'center', angle: 35 });
-    (doc as any).text(text, centerX, centerY + 80, { align: 'center', angle: 35 });
+    doc.text(text, centerX, centerY, { align: 'center', angle: 35 });
+    doc.text(text, centerX, centerY + 80, { align: 'center', angle: 35 });
     doc.restoreGraphicsState();
   }
 }
@@ -386,6 +388,7 @@ interface PDFOptions {
   incluirEventos?: boolean;
   incluirReconstituidos?: boolean;
   incluirAtestados?: boolean;
+  incluirFerias?: boolean;
   incluirFinanceiro?: boolean;
   incluirBancoHoras?: boolean;
   /** Banco de horas completo para o Radar (mesmo se a seção BH estiver oculta no PDF) */
@@ -438,7 +441,7 @@ function gerarRadarParaPdf(
   days: DaySummary[],
   bancoEntriesRadar: BancoHorasEntry[],
   saldoBancoMin: number,
-  perfil: any,
+  perfil: Tables<'profiles'>,
   cargaHoras: number,
   salario: number,
   percentual: number,
@@ -572,7 +575,7 @@ function adicionarRadarNoPDF(
 
 function gerarExtratoPDF(
   days: DaySummary[],
-  perfil: any,
+  perfil: Tables<'profiles'>,
   periodoLabel: string,
   bancoEntries: BancoHorasEntry[],
   carga: number,
@@ -587,6 +590,7 @@ function gerarExtratoPDF(
   const incluirBH = opcoes?.incluirBancoHoras !== false;
   const incluirReconstituidos = opcoes?.incluirReconstituidos !== false;
   const incluirAtestados = opcoes?.incluirAtestados !== false;
+  const incluirFerias = opcoes?.incluirFerias !== false;
   const bancoEntriesRadar = opcoes?.bancoEntriesParaRadar ?? bancoEntries;
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -658,7 +662,7 @@ function gerarExtratoPDF(
     { label: 'Atestados', valor: `${daysAtestado.length} dias`, cor: [155, 89, 182] as const },
     { label: 'Feriados', valor: `${daysFeriado.length} dias`, cor: [231, 76, 60] as const },
     ...(daysPendentes.length > 0 ? [{ label: 'Pendentes', valor: `${daysPendentes.length} dias`, cor: [243, 156, 18] as const }] : []),
-    ...(daysFerias.length > 0 ? [{ label: 'Ferias/Folgas', valor: `${daysFerias.length} dias`, cor: [52, 152, 219] as const }] : []),
+    ...(incluirFerias && daysFerias.length > 0 ? [{ label: 'Ferias/Folgas', valor: `${daysFerias.length} dias`, cor: [52, 152, 219] as const }] : []),
   ];
 
   const cardW = (contentW - 6) / 3;
@@ -705,8 +709,8 @@ function gerarExtratoPDF(
       { label: 'Salario base', valor: fmtBRL(salario), bold: false },
       { label: `Horas extras (${fmtHM(totalMinExtra)} no periodo)`, valor: fmtBRL(valorExtras), bold: false },
       { label: 'SALARIO BRUTO', valor: fmtBRL(salarioBruto), bold: true, separator: true },
-      { label: '(-) INSS (tabela progressiva 2025)', valor: `-${fmtBRL(inss)}`, bold: false, color: [231, 76, 60] },
-      { label: '(-) IRRF (apos deducao INSS)', valor: `-${fmtBRL(irrf)}`, bold: false, color: [231, 76, 60] },
+      { label: '(-) INSS (tabela progressiva 2026)', valor: `-${fmtBRL(inss)}`, bold: false, color: [231, 76, 60] },
+      { label: '(-) IRRF estimado (parâmetros 2026)', valor: `-${fmtBRL(irrf)}`, bold: false, color: [231, 76, 60] },
     ];
 
     if (totalDescontosExtra > 0) {
@@ -724,7 +728,7 @@ function gerarExtratoPDF(
     doc.roundedRect(margem, y, contentW, boxH, 2, 2, 'FD');
     y += 4;
 
-    linhas.forEach((l: any) => {
+    linhas.forEach((l) => {
       if (l.separator) {
         doc.setDrawColor(200, 200, 210);
         doc.line(margem + 3, y - 1, margem + contentW - 3, y - 1);
@@ -749,7 +753,7 @@ function gerarExtratoPDF(
     doc.setFontSize(6.5);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(150, 150, 160);
-    doc.text('* Calculo baseado nas tabelas INSS/IRRF 2025. Confira com o holerite oficial.', margem, y);
+    doc.text('* Estimativa com parâmetros mensais INSS/IRRF de 2026. Confira com o holerite oficial.', margem, y);
     y += 6;
   }
 
@@ -789,7 +793,7 @@ function gerarExtratoPDF(
       doc.text(`Este saldo de ${formatMinutosHoras(saldoInicial)} foi informado por voce como horas acumuladas antes de usar o Hora Justa.`, margem, y + (bhItems.length * 5) + 5);
     }
 
-    bhItems.forEach((item: any) => {
+    bhItems.forEach((item) => {
       y = checkPage(doc, y, 6);
       doc.setFontSize(9);
       doc.setFont('helvetica', item.bold ? 'bold' : 'normal');
@@ -816,6 +820,7 @@ function gerarExtratoPDF(
     let filteredDays = [...days];
     if (!incluirReconstituidos) filteredDays = filteredDays.filter(d => d.registroOrigem !== 'reconstituido');
     if (!incluirAtestados) filteredDays = filteredDays.filter(d => d.origem !== 'atestado');
+    if (!incluirFerias) filteredDays = filteredDays.filter(d => d.origem !== 'ferias');
     // Remove duplicates by date
     const seenDates = new Set<string>();
     filteredDays = filteredDays.filter(d => {
@@ -877,7 +882,7 @@ function gerarExtratoPDF(
           }
         },
       });
-      y = (doc as any).lastAutoTable.finalY + 4;
+      y = lastAutoTableY(doc) + 4;
     }
 
     // Legend
@@ -967,7 +972,7 @@ function gerarExtratoPDF(
       headStyles: { fillColor: [155, 89, 182], textColor: [255, 255, 255], fontStyle: 'bold' },
       margin: { left: margem, right: margem },
     });
-    y = (doc as any).lastAutoTable.finalY + 3;
+    y = lastAutoTableY(doc) + 3;
 
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
@@ -1169,84 +1174,107 @@ const RelatorioPage: React.FC = () => {
   const [allMarcacoes, setAllMarcacoes] = useState<Marcacao[]>([]);
   const [bancoEntries, setBancoEntries] = useState<BancoHorasEntry[]>([]);
   const [totalCompensado, setTotalCompensado] = useState(0);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [dataLoadError, setDataLoadError] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [showOptionsModal, setShowOptionsModal] = useState(false);
   const { canExportPdf } = usePaywall();
   const [showPaywall, setShowPaywall] = useState(false);
 
-  const p = profile as any;
+  const p = profile;
+  const tipoJornada: TipoJornada = p?.tipo_jornada === 'escala' || p?.tipo_jornada === 'turno'
+    ? p.tipo_jornada
+    : 'jornada_fixa';
   const carga = getCargaDiaria(
-    (p?.tipo_jornada || 'jornada_fixa') as any,
+    tipoJornada,
     p?.escala_tipo || null,
     p?.carga_horaria_diaria ?? 8,
   );
   const salario = profile?.salario_base ?? 0;
   const percentual = profile?.hora_extra_percentual ?? 50;
 
-  const [registrosPonto, setRegistrosPonto] = useState<any[]>([]);
-  const [feriasPeriodo, setFeriasPeriodo] = useState<any[]>([]);
-  const [compPeriodo, setCompPeriodo] = useState<any[]>([]);
+  const [registrosPonto, setRegistrosPonto] = useState<RegistroAtestado[]>([]);
+  const [feriasPeriodo, setFeriasPeriodo] = useState<PeriodoFerias[]>([]);
+  const [compPeriodo, setCompPeriodo] = useState<CompensacaoPeriodo[]>([]);
+  const [feriadosLocais, setFeriadosLocais] = useState<FeriadoLocalConfig[]>([]);
 
-  const fetchData = async (startDate?: string, endDate?: string) => {
+  const fetchData = useCallback(async (startDate?: string, endDate?: string) => {
     if (!user) return;
-    let query = supabase
-      .from('marcacoes_ponto')
-      .select('*')
-      .eq('user_id', user.id)
-      .is('deleted_at', null)
-      .order('horario', { ascending: true });
+    setDataLoading(true);
+    setDataLoadError(false);
+    try {
+      let query = supabase
+        .from('marcacoes_ponto')
+        .select('*')
+        .eq('user_id', user.id)
+        .is('deleted_at', null)
+        .order('horario', { ascending: true });
 
-    if (startDate) query = query.gte('data', startDate);
-    if (endDate) query = query.lte('data', endDate);
+      if (startDate) query = query.gte('data', startDate);
+      if (endDate) query = query.lte('data', endDate);
 
-    const { data } = await query;
-    setAllMarcacoes((data as Marcacao[]) || []);
+      const { data, error } = await query;
+      if (error) throw error;
+      const marcacoes = (data ?? []).map(toMarcacao);
+      const bhRes = await fetchBancoHorasEntries(user.id);
 
-    const bhRes = await fetchBancoHorasEntries(user.id);
-    setBancoEntries(bhRes);
+      const { data: compData, error: compError } = await supabase
+        .from('compensacoes_banco_horas')
+        .select('minutos')
+        .eq('user_id', user.id);
+      if (compError) throw compError;
+      const total = (compData ?? []).reduce((acc, compensation) => acc + compensation.minutos, 0);
 
-    const { data: compData } = await supabase
-      .from('compensacoes_banco_horas')
-      .select('minutos')
-      .eq('user_id', user.id);
-    const total = (compData as any[] || []).reduce((acc: number, c: any) => acc + c.minutos, 0);
-    setTotalCompensado(total);
+      let regQuery = supabase.from('registros_ponto').select('data, atestado_periodo')
+        .eq('user_id', user.id).is('deleted_at', null)
+        .not('atestado_periodo', 'is', null);
+      if (startDate) regQuery = regQuery.gte('data', startDate);
+      if (endDate) regQuery = regQuery.lte('data', endDate);
+      const { data: regData, error: regError } = await regQuery;
+      if (regError) throw regError;
 
-    // Fetch atestados
-    let regQuery = supabase.from('registros_ponto').select('data, atestado_periodo')
-      .eq('user_id', user.id).is('deleted_at', null)
-      .not('atestado_periodo', 'is', null);
-    if (startDate) regQuery = regQuery.gte('data', startDate);
-    if (endDate) regQuery = regQuery.lte('data', endDate);
-    const { data: regData } = await regQuery;
-    setRegistrosPonto(regData || []);
+      const { data: feriasData, error: feriasError } = await supabase.from('ferias').select('data_inicio, data_fim')
+        .eq('user_id', user.id).in('status', ['ativa', 'agendada', 'concluida']);
+      if (feriasError) throw feriasError;
 
-    // Fetch férias
-    const { data: feriasData } = await supabase.from('ferias').select('*')
-      .eq('user_id', user.id).in('status', ['ativa', 'agendada', 'concluida']);
-    setFeriasPeriodo(feriasData || []);
+      let compPQuery = supabase.from('compensacoes_banco_horas').select('data').eq('user_id', user.id);
+      if (startDate) compPQuery = compPQuery.gte('data', startDate);
+      if (endDate) compPQuery = compPQuery.lte('data', endDate);
+      const { data: compPData, error: compPError } = await compPQuery;
+      if (compPError) throw compPError;
 
-    // Fetch compensações do período
-    let compPQuery = supabase.from('compensacoes_banco_horas').select('*').eq('user_id', user.id);
-    if (startDate) compPQuery = compPQuery.gte('data', startDate);
-    if (endDate) compPQuery = compPQuery.lte('data', endDate);
-    const { data: compPData } = await compPQuery;
-    setCompPeriodo(compPData || []);
-  };
+      const { data: feriadosLocaisData, error: feriadosLocaisError } = await supabase
+        .from('feriados_locais').select('data, nome, recorrente').eq('user_id', user.id);
+      if (feriadosLocaisError) throw feriadosLocaisError;
 
-  const diaFechamento = (p?.dia_fechamento_folha as number) ?? 0;
+      setAllMarcacoes(marcacoes);
+      setBancoEntries(bhRes);
+      setTotalCompensado(total);
+      setRegistrosPonto(regData ?? []);
+      setFeriasPeriodo(feriasData ?? []);
+      setCompPeriodo(compPData ?? []);
+      setFeriadosLocais(feriadosLocaisData ?? []);
+    } catch (error) {
+      console.error('Falha ao carregar dados do relatório', error);
+      setDataLoadError(true);
+    } finally {
+      setDataLoading(false);
+    }
+  }, [user]);
+
+  const diaFechamento = p?.dia_fechamento_folha ?? 0;
 
   useEffect(() => {
     if (!user) return;
     const { start, end } = getCicloQuery(diaFechamento);
     fetchData(start, end);
-  }, [user, diaFechamento]);
+  }, [user, diaFechamento, fetchData]);
 
   const days = useMemo(() => {
     const { start, end } = getCicloQuery(diaFechamento);
-    const feriadosMap = getFeriadosNoPeriodo(start, end);
-    return buildDaySummaries(allMarcacoes, carga, registrosPonto, feriadosMap, start, end, feriasPeriodo, compPeriodo, p);
-  }, [allMarcacoes, carga, p, registrosPonto, feriasPeriodo, compPeriodo, diaFechamento]);
+    const feriadosMap = getFeriadosNoPeriodo(start, end, feriadosLocais);
+    return buildDaySummaries(allMarcacoes, carga, registrosPonto, feriadosMap, start, end, feriasPeriodo, compPeriodo, profile ?? undefined);
+  }, [allMarcacoes, carga, profile, registrosPonto, feriasPeriodo, compPeriodo, feriadosLocais, diaFechamento]);
 
   const totalHoras = days.reduce((s, d) => s + d.totalMin / 60, 0);
   const totalExtra = days.reduce((s, d) => s + d.extraMin / 60, 0);
@@ -1306,8 +1334,8 @@ const RelatorioPage: React.FC = () => {
         return { start: fmt(s), end: fmt(e), label: `${s.toLocaleDateString('pt-BR')} a ${e.toLocaleDateString('pt-BR')}` };
       }
       case 'tudo': {
-        const admissao = (profile as any)?.historico_inicio || (profile as any)?.data_admissao;
-        const createdAt = (profile as any)?.created_at ? new Date((profile as any).created_at).toISOString().split('T')[0] : null;
+        const admissao = profile?.historico_inicio || profile?.data_admissao;
+        const createdAt = profile?.created_at ? new Date(profile.created_at).toISOString().split('T')[0] : null;
         const startTudo = admissao || createdAt || `${now.getFullYear()}-01-01`;
         return { start: startTudo, end: fmt(now), label: 'Todo o historico' };
       }
@@ -1317,6 +1345,10 @@ const RelatorioPage: React.FC = () => {
   };
 
   const handleOpenOptions = () => {
+    if (dataLoading || dataLoadError) {
+      toast({ title: 'Dados indisponíveis', description: 'Aguarde ou recarregue os dados antes de gerar o relatório.', variant: 'destructive' });
+      return;
+    }
     if (!canExportPdf) {
       setShowPaywall(true);
       return;
@@ -1327,13 +1359,17 @@ const RelatorioPage: React.FC = () => {
   const handleGeneratePDF = async (options: ReportOptions) => {
     setGenerating(true);
     try {
+      if (!user) throw new Error('Sua sessão expirou. Entre novamente para gerar o relatório.');
+      if (dataLoadError) throw new Error('Não foi possível carregar todos os dados. Tente novamente antes de gerar o PDF.');
       // Always fetch fresh profile to get updated name
-      const { data: freshProfile } = await supabase
+      const { data: freshProfile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user!.id)
+        .eq('id', user.id)
         .single();
+      if (profileError) throw profileError;
       const perfilAtual = freshProfile || profile;
+      if (!perfilAtual) throw new Error('Não foi possível carregar seu perfil.');
 
       const { start, end, label } = getDateRange(options);
 
@@ -1341,50 +1377,57 @@ const RelatorioPage: React.FC = () => {
       let query = supabase
         .from('marcacoes_ponto')
         .select('*')
-        .eq('user_id', user!.id)
+        .eq('user_id', user.id)
         .is('deleted_at', null)
         .order('horario', { ascending: true });
 
       query = query.gte('data', start).lte('data', end);
 
-      const { data } = await query;
-      const marcacoes = (data as Marcacao[]) || [];
+      const { data, error: marcacoesError } = await query;
+      if (marcacoesError) throw marcacoesError;
+      const marcacoes = (data ?? []).map(toMarcacao);
 
       // Fetch registros_ponto for atestado info
-      const { data: registrosPonto } = await supabase
+      const { data: registrosPonto, error: registrosError } = await supabase
         .from('registros_ponto')
         .select('data, atestado_periodo')
-        .eq('user_id', user!.id)
+        .eq('user_id', user.id)
         .is('deleted_at', null)
         .not('atestado_periodo', 'is', null)
         .gte('data', start)
         .lte('data', end);
+      if (registrosError) throw registrosError;
 
       // Fetch férias for the period
-      const { data: feriasPeriodo } = await supabase
+      const { data: feriasPeriodo, error: feriasError } = await supabase
         .from('ferias')
         .select('*')
-        .eq('user_id', user!.id)
+        .eq('user_id', user.id)
         .lte('data_inicio', end)
         .gte('data_fim', start);
+      if (feriasError) throw feriasError;
 
       // Fetch compensações for the period
-      const { data: compPeriodo } = await supabase
+      const { data: compPeriodo, error: compensacoesError } = await supabase
         .from('compensacoes_banco_horas')
         .select('*')
-        .eq('user_id', user!.id)
+        .eq('user_id', user.id)
         .gte('data', start)
         .lte('data', end);
+      if (compensacoesError) throw compensacoesError;
 
-      const feriadosMap = getFeriadosNoPeriodo(start, end);
+      const { data: feriadosLocais, error: feriadosLocaisError } = await supabase
+        .from('feriados_locais').select('data, nome, recorrente').eq('user_id', user.id);
+      if (feriadosLocaisError) throw feriadosLocaisError;
+
+      const feriadosMap = getFeriadosNoPeriodo(start, end, feriadosLocais ?? []);
       const periodDays = buildDaySummaries(
-        marcacoes, carga, registrosPonto || [], feriadosMap,
-        start, end, feriasPeriodo || [], compPeriodo || [], perfilAtual,
+        marcacoes, carga, registrosPonto ?? [], feriadosMap,
+        start, end, feriasPeriodo ?? [], compPeriodo ?? [], perfilAtual,
       );
 
       if (periodDays.length === 0) {
         toast({ title: 'Sem dados', description: 'Nenhum registro encontrado no período selecionado.', variant: 'destructive' });
-        setGenerating(false);
         return;
       }
 
@@ -1397,6 +1440,7 @@ const RelatorioPage: React.FC = () => {
           incluirEventos: options.incluirEventos,
           incluirReconstituidos: options.incluirReconstituidos,
           incluirAtestados: options.incluirAtestados,
+          incluirFerias: options.incluirFerias,
           incluirFinanceiro: options.incluirFinanceiro,
           incluirBancoHoras: options.incluirBancoHoras,
           bancoEntriesParaRadar: bancoEntries,
@@ -1404,10 +1448,11 @@ const RelatorioPage: React.FC = () => {
       );
       toast({ title: 'PDF gerado!', description: 'Extrato salvo no seu dispositivo.' });
       setShowOptionsModal(false);
-    } catch (error: any) {
-      toast({ title: 'Erro', description: error.message || 'Erro ao gerar PDF', variant: 'destructive' });
+    } catch (error) {
+      toast({ title: 'Erro', description: error instanceof Error ? error.message : 'Erro ao gerar PDF', variant: 'destructive' });
+    } finally {
+      setGenerating(false);
     }
-    setGenerating(false);
   };
 
   return (
@@ -1421,6 +1466,19 @@ const RelatorioPage: React.FC = () => {
             <FileText size={18} />
             <span className="font-semibold text-sm">Resumo do mês</span>
           </div>
+          {dataLoading ? (
+            <p role="status" className="text-sm">Carregando os dados do relatório…</p>
+          ) : dataLoadError ? (
+            <div role="alert" className="space-y-3 text-sm">
+              <p>Não foi possível carregar todos os seus registros. O resumo e o PDF estão indisponíveis para evitar um relatório incompleto.</p>
+              <Button type="button" variant="secondary" size="sm" onClick={() => {
+                const { start, end } = getCicloQuery(diaFechamento);
+                void fetchData(start, end);
+              }}>
+                Tentar novamente
+              </Button>
+            </div>
+          ) : <>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
             <div>
               <p className="text-xs text-primary-foreground/80">Trabalhado</p>
@@ -1464,6 +1522,7 @@ const RelatorioPage: React.FC = () => {
               ))}
             </div>
           )}
+          </>}
         </div>
 
         {/* What's included */}
@@ -1482,6 +1541,7 @@ const RelatorioPage: React.FC = () => {
         {/* Generate Button */}
         <Button
           onClick={handleOpenOptions}
+          disabled={dataLoading || dataLoadError || generating}
           className="w-full bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl h-12 font-semibold gap-2"
         >
           <Download size={18} /> Gerar Relatório PDF

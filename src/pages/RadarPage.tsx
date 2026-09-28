@@ -8,22 +8,44 @@ import {
   ArrowLeft, BookOpen, Zap, Clock, CheckCircle2, TrendingUp, Calendar,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import {
   fetchBancoHorasEntries, summarizeBancoHoras,
   type BancoHorasEntry,
 } from '@/lib/banco-horas';
-import { getCargaDiaria, isDiaTrabalhoEscala, type Marcacao } from '@/lib/jornada';
+import { calcularJornada, getCargaDiaria, type Marcacao, type TipoJornada, type TipoMarcacao } from '@/lib/jornada';
 import { getCicloQuery } from '@/lib/ciclo-folha';
 import { usePlano } from '@/hooks/usePlano';
 import { useEffect } from 'react';
-import { analisarRadarTrabalhista, RADAR_ISENCAO_RODAPE, type AlertaRadar, type NivelAlerta } from '@/lib/radar-trabalhista';
+import { analisarRadarTrabalhista, calcularAjusteSaldoJornada, RADAR_ISENCAO_RODAPE, type AlertaRadar, type NivelAlerta, type RadarDay } from '@/lib/radar-trabalhista';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function classifyOrigin(marks: any[]): 'real' | 'reconstituido' | 'manual' {
+interface RadarDaySummary extends RadarDay {
+  marcacoes: Marcacao[];
+}
+
+function isTipoMarcacao(value: string): value is TipoMarcacao {
+  return value === 'entrada' || value === 'saida_intervalo' || value === 'volta_intervalo' || value === 'saida_final';
+}
+
+function toMarcacao(row: Tables<'marcacoes_ponto'>): Marcacao {
+  const tipo = row.tipo;
+  if (!isTipoMarcacao(tipo)) {
+    throw new Error(`Tipo de marcação desconhecido: ${tipo}`);
+  }
+  return {
+    ...row,
+    tipo,
+    origem: row.origem ?? 'manual',
+    created_at: row.created_at ?? '',
+  };
+}
+
+function classifyOrigin(marks: Marcacao[]): 'real' | 'reconstituido' | 'manual' {
   if (!marks.length) return 'manual';
   const origens = marks.map(m => m.origem || 'manual');
-  if (origens.every((o: string) => o === 'importacao_automatica')) return 'reconstituido';
+  if (origens.every((o) => o === 'importacao_automatica')) return 'reconstituido';
   if (origens.some((o: string) => o === 'botao')) return 'real';
   return 'manual';
 }
@@ -153,73 +175,79 @@ const RadarPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const plano = usePlano();
-  const p = profile as any;
+  const p = profile;
 
   const [loading, setLoading] = useState(true);
-  const [days, setDays] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const [days, setDays] = useState<RadarDaySummary[]>([]);
   const [bancoEntries, setBancoEntries] = useState<BancoHorasEntry[]>([]);
   const [saldoFinal, setSaldoFinal] = useState(0);
 
   const salario = profile?.salario_base ?? 0;
   const percentual = profile?.hora_extra_percentual ?? 50;
-  const carga = getCargaDiaria(p?.tipo_jornada || 'jornada_fixa', p?.escala_tipo || null, p?.carga_horaria_diaria ?? 8, p);
+  const tipoJornada: TipoJornada = p?.tipo_jornada === 'escala' || p?.tipo_jornada === 'turno'
+    ? p.tipo_jornada
+    : 'jornada_fixa';
+  const carga = getCargaDiaria(tipoJornada, p?.escala_tipo || null, p?.carga_horaria_diaria ?? 8);
 
   useEffect(() => {
     if (!user) return;
     const carregar = async () => {
       setLoading(true);
+      setLoadError(false);
       try {
-        const diaFechamento = (p?.dia_fechamento_folha as number) ?? 0;
+        const diaFechamento = p?.dia_fechamento_folha ?? 0;
         const { start, end } = getCicloQuery(diaFechamento);
 
         // Marcações
-        const { data: marcData } = await supabase
+        const { data: marcData, error: marcError } = await supabase
           .from('marcacoes_ponto').select('*').eq('user_id', user.id)
           .is('deleted_at', null).gte('data', start).lte('data', end)
           .order('horario', { ascending: true });
+        if (marcError) throw marcError;
 
         // Banco de horas
         const bh = await fetchBancoHorasEntries(user.id);
         setBancoEntries(bh);
 
         // Compensações
-        const { data: compData } = await supabase.from('compensacoes_banco_horas')
+        const { data: compData, error: compError } = await supabase.from('compensacoes_banco_horas')
           .select('minutos').eq('user_id', user.id);
-        const totalComp = (compData || []).reduce((s: number, c: any) => s + c.minutos, 0);
+        if (compError) throw compError;
+        const totalComp = (compData || []).reduce((sum, compensation) => sum + compensation.minutos, 0);
 
         // Férias
-        const { data: ferData } = await supabase.from('ferias').select('*')
+        const { data: ferData, error: feriasError } = await supabase.from('ferias').select('*')
           .eq('user_id', user.id).in('status', ['ativa', 'agendada', 'concluida']);
+        if (feriasError) throw feriasError;
 
         // Build simple day summaries from marcacoes for radar
-        const dayMap = new Map<string, any[]>();
-        (marcData || []).forEach((m: any) => {
+        const dayMap = new Map<string, Marcacao[]>();
+        (marcData || []).map(toMarcacao).forEach((m) => {
           if (!dayMap.has(m.data)) dayMap.set(m.data, []);
           dayMap.get(m.data)!.push(m);
         });
 
-        const { calcularJornada } = await import('@/lib/jornada');
         const cargaMin = carga * 60;
 
         // Feriados
-        const { getFeriadosDoAno } = await import('@/lib/feriados');
-        const anoI = parseInt(start.substring(0, 4));
-        const anoF = parseInt(end.substring(0, 4));
-        const feriadoMap = new Map<string, string>();
-        for (let a = anoI; a <= anoF; a++) {
-          getFeriadosDoAno(a).forEach((f: any) => { if (f.data >= start && f.data <= end) feriadoMap.set(f.data, f.nome); });
-        }
+        const { data: feriadosLocais, error: feriadosLocaisError } = await supabase
+          .from('feriados_locais').select('data, nome, recorrente').eq('user_id', user.id);
+        if (feriadosLocaisError) throw feriadosLocaisError;
+        const { getFeriadosNoPeriodo } = await import('@/lib/feriados');
+        const feriadoMap = getFeriadosNoPeriodo(start, end, feriadosLocais ?? []);
 
         // Férias set
         const feriasSet = new Set<string>();
-        (ferData || []).forEach((f: any) => {
-          let d = new Date(f.data_inicio + 'T12:00:00');
-          const ef = new Date(f.data_fim + 'T12:00:00');
+        (ferData || []).forEach((ferias) => {
+          const d = new Date(ferias.data_inicio + 'T12:00:00');
+          const ef = new Date(ferias.data_fim + 'T12:00:00');
           while (d <= ef) { feriasSet.add(d.toISOString().split('T')[0]); d.setDate(d.getDate() + 1); }
         });
 
-        const summaries: any[] = [];
-        let cur = new Date(start + 'T12:00:00');
+        const summaries: RadarDaySummary[] = [];
+        const cur = new Date(start + 'T12:00:00');
         const endD = new Date(end + 'T12:00:00');
         const hj = new Date().toISOString().split('T')[0];
         while (cur <= endD && cur.toISOString().split('T')[0] <= hj) {
@@ -235,19 +263,19 @@ const RadarPage: React.FC = () => {
             const ro = marks.length > 0 ? classifyOrigin(marks) : null;
             summaries.push({
               data: ds, totalMin: j?.totalTrabalhado || 0, extraMin: j?.totalTrabalhado || 0, intervaloMin: j?.totalIntervalo || 0,
-              origem: 'feriado', feriadoNome: feriado, marcacoes: marks, ehDiaTrabalho: true, registroOrigem: ro,
+              origem: 'feriado', feriadoNome: feriado, marcacoes: marks, ehDiaTrabalho: true, registroOrigem: ro, devendoMin: 0,
             });
           } else if (eFerias) {
-            summaries.push({ data: ds, totalMin: 0, extraMin: 0, intervaloMin: 0, origem: 'ferias', feriadoNome: null, marcacoes: [], ehDiaTrabalho: false, registroOrigem: null });
+            summaries.push({ data: ds, totalMin: 0, extraMin: 0, intervaloMin: 0, origem: 'ferias', feriadoNome: null, marcacoes: [], ehDiaTrabalho: false, registroOrigem: null, devendoMin: 0 });
           } else if (marks.length > 0) {
             const j = calcularJornada(marks, cargaMin);
             const ro = classifyOrigin(marks);
             summaries.push({
               data: ds, totalMin: j.totalTrabalhado, extraMin: ehDia ? j.horaExtraMin : j.totalTrabalhado, intervaloMin: j.totalIntervalo,
-              origem: 'real', feriadoNome: null, marcacoes: marks, ehDiaTrabalho: ehDia, registroOrigem: ro,
+              origem: 'real', feriadoNome: null, marcacoes: marks, ehDiaTrabalho: ehDia, registroOrigem: ro, devendoMin: ehDia ? j.devendoMin : 0,
             });
           } else {
-            summaries.push({ data: ds, totalMin: 0, extraMin: 0, intervaloMin: 0, origem: ehDia ? 'pendente' : 'fds', feriadoNome: null, marcacoes: [], ehDiaTrabalho: ehDia, registroOrigem: null });
+            summaries.push({ data: ds, totalMin: 0, extraMin: 0, intervaloMin: 0, origem: ehDia ? 'pendente' : 'fds', feriadoNome: null, marcacoes: [], ehDiaTrabalho: ehDia, registroOrigem: null, devendoMin: 0 });
           }
           cur.setDate(cur.getDate() + 1);
         }
@@ -255,22 +283,21 @@ const RadarPage: React.FC = () => {
         setDays(summaries);
 
         // Saldo banco horas
-        const { summarizeBancoHoras } = await import('@/lib/banco-horas');
         const bhSum = summarizeBancoHoras(bh, salario, percentual);
-        const totalExtra = summaries.filter(d => d.extraMin > 0 && d.origem !== 'pendente').reduce((s: number, d: any) => s + d.extraMin, 0);
-        const totalDevendo = summaries.filter(d => d.devendoMin > 0).reduce((s: number, d: any) => s + (d.devendoMin || 0), 0);
-        const saldo = (p?.banco_horas_saldo_inicial ?? 0) + bhSum.saldo - totalComp + totalExtra - totalDevendo;
+        const ajusteJornada = calcularAjusteSaldoJornada(summaries);
+        const saldo = (p?.banco_horas_saldo_inicial ?? 0) + bhSum.saldo - totalComp + ajusteJornada;
         setSaldoFinal(saldo);
-      } catch (e) {
-        console.error(e);
+      } catch (error) {
+        console.error('Falha ao carregar dados do Radar Trabalhista', error);
+        setLoadError(true);
       }
       setLoading(false);
     };
     carregar();
-  }, [user]);
+  }, [user, carga, salario, percentual, p?.banco_horas_saldo_inicial, p?.dia_fechamento_folha, p?.dias_trabalhados_semana, reloadNonce]);
 
   const alertas = useMemo(() => {
-    if (loading || days.length === 0) return [];
+    if (loading || loadError || days.length === 0) return [];
     return analisarRadarTrabalhista({
       days,
       bancoSaldoMin: saldoFinal,
@@ -282,7 +309,7 @@ const RadarPage: React.FC = () => {
       cargaHoras: carga,
       excluirReconstituidos: true,
     });
-  }, [days, saldoFinal, bancoEntries, salario, percentual, carga, p, loading]);
+  }, [days, saldoFinal, bancoEntries, salario, percentual, carga, p, loading, loadError]);
 
   const totalAlto = alertas.filter(a => a.nivel === 'alto').length;
   const totalMedio = alertas.filter(a => a.nivel === 'medio').length;
@@ -324,6 +351,11 @@ const RadarPage: React.FC = () => {
               <div className="w-4 h-4 border-2 border-white/20 border-t-orange-400 rounded-full animate-spin" />
               <p className="text-xs">Analisando seus registros...</p>
             </div>
+          ) : loadError ? (
+            <div className="flex items-center gap-1.5 bg-amber-500/20 border border-amber-500/30 rounded-xl px-3 py-1.5">
+              <AlertTriangle size={12} className="text-amber-300" />
+              <span className="text-[11px] text-amber-200 font-bold">Não foi possível analisar agora</span>
+            </div>
           ) : (
             <div className="flex gap-2 flex-wrap">
               {totalAlto > 0 && (
@@ -354,12 +386,19 @@ const RadarPage: React.FC = () => {
             <div className="w-10 h-10 border-4 border-border border-t-accent rounded-full animate-spin mx-auto mb-3" />
             <p className="text-sm text-muted-foreground">Analisando seus registros de trabalho...</p>
           </div>
+        ) : loadError ? (
+          <div role="alert" className="rounded-3xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-6 text-center space-y-3">
+            <div className="text-3xl">⚠️</div>
+            <p className="font-black text-amber-800 dark:text-amber-200">Não foi possível analisar seus registros</p>
+            <p className="text-xs text-amber-700 dark:text-amber-300">Confira sua conexão e tente novamente. Não interpretamos uma falha de carregamento como ausência de alertas.</p>
+            <button type="button" onClick={() => setReloadNonce((value) => value + 1)} className="rounded-lg bg-amber-700 px-4 py-2 text-xs font-bold text-white hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">Tentar novamente</button>
+          </div>
         ) : alertas.length === 0 ? (
           <div className="rounded-3xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 p-6 text-center space-y-2">
             <div className="text-4xl mx-auto">✅</div>
-            <p className="font-black text-emerald-700 dark:text-emerald-300">Tudo certo por aqui!</p>
+            <p className="font-black text-emerald-700 dark:text-emerald-300">Nenhum alerta identificado neste período</p>
             <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80">
-              Não foram identificados pontos relevantes com base nos dados analisados neste período.
+              A análise não encontrou alertas nos registros disponíveis. Isso não confirma conformidade da jornada nem substitui uma avaliação profissional.
             </p>
           </div>
         ) : (

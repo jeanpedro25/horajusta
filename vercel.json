@@ -12,6 +12,8 @@
     }
   ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/termos", "destination": "/termos/index.html" },
+    { "source": "/privacidade-publica", "destination": "/privacidade-publica/index.html" },
+    { "source": "/(.*)", "destination": "/app-shell.html" }
   ]
 }

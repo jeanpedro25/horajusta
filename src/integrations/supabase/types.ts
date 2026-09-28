@@ -224,6 +224,11 @@ export type Database = {
       profiles: {
         Row: {
           aceite_termos: boolean
+          aceite_termos_versao: string | null
+          aceite_termos_em: string | null
+          aceite_privacidade_versao: string | null
+          aceite_privacidade_em: string | null
+          account_deletion_pending: boolean
           adiantamentos: number
           alternancia_turno: string
           auxilio_combustivel: number
@@ -275,6 +280,11 @@ export type Database = {
         }
         Insert: {
           aceite_termos?: boolean
+          aceite_termos_versao?: string | null
+          aceite_termos_em?: string | null
+          aceite_privacidade_versao?: string | null
+          aceite_privacidade_em?: string | null
+          account_deletion_pending?: boolean
           adiantamentos?: number
           alternancia_turno?: string
           auxilio_combustivel?: number
@@ -326,6 +336,11 @@ export type Database = {
         }
         Update: {
           aceite_termos?: boolean
+          aceite_termos_versao?: string | null
+          aceite_termos_em?: string | null
+          aceite_privacidade_versao?: string | null
+          aceite_privacidade_em?: string | null
+          account_deletion_pending?: boolean
           adiantamentos?: number
           alternancia_turno?: string
           auxilio_combustivel?: number
@@ -500,7 +515,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      delete_my_account: { Args: never; Returns: undefined }
+      delete_my_account: { Args: { target_user_id: string }; Returns: undefined }
+      record_legal_acceptance: { Args: Record<PropertyKey, never>; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

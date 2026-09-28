@@ -2,9 +2,30 @@
  * RADAR TRABALHISTA – Motor de Análise CLT (Versão Narrativa Simplificada)
  * Identifica padrões e inconsistências da CLT.
  */
-import { type BancoHorasEntry } from '@/lib/banco-horas';
-
 export type NivelAlerta = 'alto' | 'medio' | 'baixo';
+
+export interface RadarDay {
+  data: string;
+  totalMin: number;
+  extraMin: number;
+  intervaloMin: number;
+  origem: string;
+  ehDiaTrabalho?: boolean;
+  registroOrigem?: string | null;
+  feriadoNome?: string | null;
+  devendoMin?: number;
+}
+
+/** Ajusta o saldo apenas com extras registradas e insuficiência em dias efetivamente marcados. */
+export function calcularAjusteSaldoJornada(days: RadarDay[]): number {
+  const extras = days
+    .filter((day) => day.extraMin > 0 && day.origem !== 'pendente')
+    .reduce((total, day) => total + day.extraMin, 0);
+  const devendo = days
+    .filter((day) => day.origem !== 'pendente')
+    .reduce((total, day) => total + (day.devendoMin ?? 0), 0);
+  return extras - devendo;
+}
 
 export interface AlertaRadar {
   id: string;
@@ -20,7 +41,7 @@ export interface AlertaRadar {
 }
 
 export interface RadarInput {
-  days: any[];
+  days: RadarDay[];
   bancoSaldoMin: number;
   bancoDataPrimeiro?: string | null;
   created_at?: string | null;
@@ -57,7 +78,7 @@ export function analisarRadarTrabalhista(input: RadarInput): AlertaRadar[] {
   const { bancoSaldoMin, bancoDataPrimeiro, salario, percentualHE } = input;
   const excluirReconst = input.excluirReconstituidos !== false;
   const days = excluirReconst
-    ? input.days.filter((d: any) => d.registroOrigem !== 'reconstituido')
+    ? input.days.filter((d) => d.registroOrigem !== 'reconstituido')
     : input.days;
 
   const alertas: AlertaRadar[] = [];
@@ -155,9 +176,9 @@ export function analisarRadarTrabalhista(input: RadarInput): AlertaRadar[] {
   }
 
   // ── 4. Jornada acima de 10h ───────────────────────────────────────────────
-  const acima10h = diasUteis.filter((d: any) => d.totalMin > 600);
+  const acima10h = diasUteis.filter((d) => d.totalMin > 600);
   if (acima10h.length > 0) {
-    const exemplos = acima10h.slice(0, 5).map((d: any) => `${fmtData(d.data)}: ${fmtHM(d.totalMin)} trabalhados`);
+    const exemplos = acima10h.slice(0, 5).map((d) => `${fmtData(d.data)}: ${fmtHM(d.totalMin)} trabalhados`);
     alertas.push({
       id: 'jornada_10h',
       nivel: acima10h.length >= 3 ? 'alto' : 'medio',
@@ -173,7 +194,7 @@ export function analisarRadarTrabalhista(input: RadarInput): AlertaRadar[] {
 
   // ── 5. Semanas acima de 44h ───────────────────────────────────────────────
   const mapSemanas = new Map<string, { totalMin: number; semana: string }>();
-  days.forEach((d: any) => {
+  days.forEach((d) => {
     if (d.totalMin <= 0) return;
     const dt = new Date(d.data + 'T12:00:00');
     const dow = dt.getDay();
@@ -204,7 +225,7 @@ export function analisarRadarTrabalhista(input: RadarInput): AlertaRadar[] {
     const admissao = new Date(dataRef);
     const mesesAdm = diffMeses(admissao, hoje);
     const periodosCompletos = Math.floor(mesesAdm / 12);
-    const feriasDias = days.filter((d: any) => d.origem === 'ferias').length;
+    const feriasDias = days.filter((d) => d.origem === 'ferias').length;
 
     if (periodosCompletos >= 1 && feriasDias < periodosCompletos * 30) {
       const vencimento = new Date(admissao);
@@ -227,11 +248,11 @@ export function analisarRadarTrabalhista(input: RadarInput): AlertaRadar[] {
   }
 
   // ── 7. Feriados trabalhados ───────────────────────────────────────────────
-  const feriadosTrabalhados = days.filter((d: any) => d.origem === 'feriado' && d.totalMin > 30);
+  const feriadosTrabalhados = days.filter((d) => d.origem === 'feriado' && d.totalMin > 30);
   if (feriadosTrabalhados.length > 0) {
-    const totalFerMin = feriadosTrabalhados.reduce((s: number, d: any) => s + d.totalMin, 0);
+    const totalFerMin = feriadosTrabalhados.reduce((s, d) => s + d.totalMin, 0);
     const estimativa = vhExtra > 0 ? Math.round(totalFerMin / 60 * vhExtra) : 0;
-    const exemplos = feriadosTrabalhados.slice(0, 5).map((d: any) =>
+    const exemplos = feriadosTrabalhados.slice(0, 5).map((d) =>
       `${fmtData(d.data)}${d.feriadoNome ? ` (${d.feriadoNome})` : ''}: ${fmtHM(d.totalMin)} trabalhados`
     );
     alertas.push({

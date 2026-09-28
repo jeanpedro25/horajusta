@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Camera, Upload, ExternalLink, Trash2, Loader2, FileText } from 'lucide-react';
+import { ATESTADO_ACCEPT, extensaoAtestado, validarArquivoAtestado } from '@/lib/atestado-upload';
 
 type PeriodoEstado = 'pendente' | 'registrado' | 'atestado';
 
@@ -29,20 +31,7 @@ interface BlocoState {
 interface EditRegistroDiaProps {
   open: boolean;
   onClose: () => void;
-  registro: {
-    id: string;
-    data: string;
-    manha_entrada: string | null;
-    manha_saida: string | null;
-    manha_estado: string | null;
-    manha_atestado_url: string | null;
-    tarde_entrada: string | null;
-    tarde_saida: string | null;
-    tarde_estado: string | null;
-    tarde_atestado_url: string | null;
-    intervalo_minutos: number | null;
-    observacao: string | null;
-  } | null;
+  registro: Tables<'registros_ponto'> | null;
   onSaved: () => void;
 }
 
@@ -54,6 +43,9 @@ const INTERVALO_OPTIONS = [
   { label: '1h30', value: 90 },
   { label: '2h', value: 120 },
 ];
+
+type RegistroColunaBloco = BlocoConfig['dbEntrada'] | BlocoConfig['dbSaida'] | BlocoConfig['dbEstado'] | BlocoConfig['dbAtestadoUrl'];
+type RegistroEditavel = Tables<'registros_ponto'> & { anexo_url?: string | null };
 
 const estadoBadge = (estado: PeriodoEstado) => {
   switch (estado) {
@@ -95,8 +87,7 @@ const EditRegistroDia: React.FC<EditRegistroDiaProps> = ({ open, onClose, regist
 
   // Build dynamic blocks based on profile
   const blocos: BlocoConfig[] = React.useMemo(() => {
-    const p = profile as any;
-    if (p?.tipo_jornada === 'turno') {
+    if (profile?.tipo_jornada === 'turno') {
       const result: BlocoConfig[] = [];
       const turnos = [
         { key: 'a', icone: '🌅', dbIdx: 0 },
@@ -104,8 +95,8 @@ const EditRegistroDia: React.FC<EditRegistroDiaProps> = ({ open, onClose, regist
       ];
       // Only support 2 turnos mapped to manha/tarde DB columns
       for (const t of turnos) {
-        const inicio = p[`turno_${t.key}_inicio`];
-        const fim = p[`turno_${t.key}_fim`];
+        const inicio = t.key === 'a' ? profile.turno_a_inicio : profile.turno_b_inicio;
+        const fim = t.key === 'a' ? profile.turno_a_fim : profile.turno_b_fim;
         if (inicio && fim) {
           result.push({
             id: `turno_${t.key}`,
@@ -138,11 +129,12 @@ const EditRegistroDia: React.FC<EditRegistroDiaProps> = ({ open, onClose, regist
 
   // Init form from registro
   useEffect(() => {
-    if (!registro) return;
+    if (!open || !registro) return;
     const states: BlocoState[] = blocos.map((bloco) => {
-      const entrada = (registro as any)[bloco.dbEntrada] || '';
-      const saida = (registro as any)[bloco.dbSaida] || '';
-      const estado = ((registro as any)[bloco.dbEstado] || 'pendente') as PeriodoEstado;
+      const entrada = registro[bloco.dbEntrada] || '';
+      const saida = registro[bloco.dbSaida] || '';
+      const estadoRaw = registro[bloco.dbEstado];
+      const estado: PeriodoEstado = estadoRaw === 'registrado' || estadoRaw === 'atestado' ? estadoRaw : 'pendente';
       if (estado === 'atestado') return { estado: 'atestado', entrada: '', saida: '' };
       const hasData = !!entrada || !!saida;
       return { estado: hasData ? 'registrado' : 'pendente', entrada: entrada ? String(entrada).substring(0, 5) : '', saida: saida ? String(saida).substring(0, 5) : '' };
@@ -152,31 +144,32 @@ const EditRegistroDia: React.FC<EditRegistroDiaProps> = ({ open, onClose, regist
     setObservacao(registro.observacao || '');
 
     // Reconstruct atestado
-    const aPeriodo = (registro as any).atestado_periodo;
+    const extendedRegistro = registro as RegistroEditavel;
+    const aPeriodo = extendedRegistro.atestado_periodo;
     if (aPeriodo) {
       setAtestadoPeriodo(aPeriodo);
       // Find the URL from the relevant bloco
-      const url = (registro as any).manha_atestado_url || (registro as any).tarde_atestado_url || (registro as any).anexo_url;
+      const url = registro.manha_atestado_url || registro.tarde_atestado_url || extendedRegistro.anexo_url;
       setAtestadoUrl(url || null);
     } else {
       // Check individual bloco atestado URLs
-      const manhaAtestado = (registro as any).manha_estado === 'atestado';
-      const tardeAtestado = (registro as any).tarde_estado === 'atestado';
+      const manhaAtestado = registro.manha_estado === 'atestado';
+      const tardeAtestado = registro.tarde_estado === 'atestado';
       if (manhaAtestado && tardeAtestado) {
         setAtestadoPeriodo('integral');
-        setAtestadoUrl((registro as any).manha_atestado_url || (registro as any).tarde_atestado_url || null);
+        setAtestadoUrl(registro.manha_atestado_url || registro.tarde_atestado_url || null);
       } else if (manhaAtestado) {
         setAtestadoPeriodo(blocos[0]?.id || 'manha');
-        setAtestadoUrl((registro as any).manha_atestado_url || null);
+        setAtestadoUrl(registro.manha_atestado_url || null);
       } else if (tardeAtestado) {
         setAtestadoPeriodo(blocos[1]?.id || 'tarde');
-        setAtestadoUrl((registro as any).tarde_atestado_url || null);
+        setAtestadoUrl(registro.tarde_atestado_url || null);
       } else {
         setAtestadoPeriodo(null);
         setAtestadoUrl(null);
       }
     }
-  }, [registro?.id, blocos.length]);
+  }, [open, registro, blocos]);
 
   const updateBloco = (idx: number, field: 'entrada' | 'saida', value: string) => {
     setBlocoStates(prev => {
@@ -204,12 +197,22 @@ const EditRegistroDia: React.FC<EditRegistroDiaProps> = ({ open, onClose, regist
         return bs;
       });
     });
-  }, [atestadoPeriodo, atestadoUrl]);
+  }, [atestadoPeriodo, atestadoUrl, blocos]);
 
   const handleUpload = async (file: File) => {
     if (!user || !registro) return;
+    const validationError = validarArquivoAtestado(file);
+    if (validationError) {
+      toast({ title: 'Arquivo não aceito', description: validationError, variant: 'destructive' });
+      return;
+    }
     setUploading(true);
-    const ext = file.name.split('.').pop();
+    const ext = extensaoAtestado(file);
+    if (!ext) {
+      toast({ title: 'Arquivo não aceito', description: 'Selecione PDF, JPEG, PNG ou WebP.', variant: 'destructive' });
+      setUploading(false);
+      return;
+    }
     const path = `${user.id}/${registro.id}-${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from('atestados').upload(path, file, { cacheControl: '3600', upsert: true });
     if (error) {
@@ -235,7 +238,7 @@ const EditRegistroDia: React.FC<EditRegistroDiaProps> = ({ open, onClose, regist
     if (!registro || !user) return;
     setSaving(true);
 
-    const updateData: Record<string, any> = {
+    const updateData: TablesUpdate<'registros_ponto'> = {
       intervalo_minutos: intervaloMinutos,
       observacao: observacao || null,
       editado_manualmente: true,
@@ -244,13 +247,14 @@ const EditRegistroDia: React.FC<EditRegistroDiaProps> = ({ open, onClose, regist
     };
 
     // Write each bloco to its DB columns
+    const colunas = updateData as TablesUpdate<'registros_ponto'> & Partial<Record<RegistroColunaBloco, string | null>>;
     blocos.forEach((bloco, idx) => {
       const bs = blocoStates[idx];
       if (!bs) return;
-      updateData[bloco.dbEstado] = bs.estado;
-      updateData[bloco.dbEntrada] = bs.estado === 'registrado' && bs.entrada ? bs.entrada : null;
-      updateData[bloco.dbSaida] = bs.estado === 'registrado' && bs.saida ? bs.saida : null;
-      updateData[bloco.dbAtestadoUrl] = bs.estado === 'atestado' ? atestadoUrl : null;
+      colunas[bloco.dbEstado] = bs.estado;
+      colunas[bloco.dbEntrada] = bs.estado === 'registrado' && bs.entrada ? bs.entrada : null;
+      colunas[bloco.dbSaida] = bs.estado === 'registrado' && bs.saida ? bs.saida : null;
+      colunas[bloco.dbAtestadoUrl] = bs.estado === 'atestado' ? atestadoUrl : null;
     });
 
     // Legacy atestado_periodo
@@ -264,7 +268,7 @@ const EditRegistroDia: React.FC<EditRegistroDiaProps> = ({ open, onClose, regist
       updateData.atestado_periodo = null;
     }
 
-    const { error } = await supabase.from('registros_ponto').update(updateData as any).eq('id', registro.id);
+    const { error } = await supabase.from('registros_ponto').update(updateData).eq('id', registro.id);
     if (error) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     } else {
@@ -278,7 +282,7 @@ const EditRegistroDia: React.FC<EditRegistroDiaProps> = ({ open, onClose, regist
   const handleDelete = async () => {
     if (!registro) return;
     setSaving(true);
-    await supabase.from('registros_ponto').update({ deleted_at: new Date().toISOString() } as any).eq('id', registro.id);
+    await supabase.from('registros_ponto').update({ deleted_at: new Date().toISOString() }).eq('id', registro.id);
     toast({ title: 'Registro removido' });
     onSaved();
     onClose();
@@ -386,8 +390,8 @@ const EditRegistroDia: React.FC<EditRegistroDiaProps> = ({ open, onClose, regist
           <div className="border-t border-border pt-4">
             <p className="text-sm font-medium mb-2">📋 Atestado médico / documento</p>
 
-            <input ref={fileRef} type="file" accept="image/*,.pdf" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} className="hidden" />
-            <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} className="hidden" />
+            <input ref={fileRef} type="file" accept={ATESTADO_ACCEPT} onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} className="hidden" />
+            <input ref={cameraRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} className="hidden" />
 
             {!atestadoUrl ? (
               <div className="flex gap-2">

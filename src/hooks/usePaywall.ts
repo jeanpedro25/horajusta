@@ -1,11 +1,9 @@
-import { useAuth } from '@/contexts/AuthContext';
 import { useMemo } from 'react';
 import { usePlano } from './usePlano';
 
 export type PaywallAction = 'money' | 'pdf' | 'history' | 'simulate' | 'auto' | 'excel';
 
 export const usePaywall = () => {
-  const { profile } = useAuth();
   const plano = usePlano();
 
   return useMemo(() => {
@@ -25,5 +23,5 @@ export const usePaywall = () => {
         return true;
       },
     };
-  }, [plano, profile]);
+  }, [plano]);
 };

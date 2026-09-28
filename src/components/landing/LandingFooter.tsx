@@ -14,13 +14,13 @@ const LandingFooter: React.FC = () => {
             <p className="mt-3 max-w-sm text-xs leading-5 text-muted-foreground">Ferramenta de organização pessoal de jornada, banco de horas e estimativas.</p>
           </div>
           <div className="flex flex-wrap gap-x-7 gap-y-3 text-sm">
-            <button onClick={() => navigate('/auth')} className="font-semibold text-foreground hover:text-primary">Entrar</button>
-            <button onClick={() => navigate('/termos')} className="text-muted-foreground hover:text-primary">Termos de uso</button>
-            <button onClick={() => navigate('/privacidade-publica')} className="text-muted-foreground hover:text-primary">Privacidade</button>
+            <button onClick={() => navigate('/auth')} className="font-semibold text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">Entrar</button>
+            <button onClick={() => navigate('/termos')} className="text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">Termos de uso</button>
+            <button onClick={() => navigate('/privacidade-publica')} className="text-muted-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">Privacidade</button>
           </div>
         </div>
         <div className="mt-9 flex flex-col justify-between gap-3 border-t border-border pt-6 text-xs leading-5 text-muted-foreground md:flex-row">
-          <p>© {new Date().getFullYear()} Hora Justa.</p>
+          <p>© Hora Justa.</p>
           <p className="max-w-2xl md:text-right">Os registros são de responsabilidade do usuário. Valores são estimativas baseadas nos dados informados e não substituem documentos oficiais.</p>
         </div>
       </div>

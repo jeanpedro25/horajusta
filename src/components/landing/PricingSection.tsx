@@ -4,20 +4,23 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LEGAL_COPY } from '@/lib/legal-copy';
+import {
+  ANNUAL_SAVINGS_CENTS,
+  formatBRLCents,
+  getPlanDurationLabel,
+  PLAN_CATALOG,
+} from '../../../supabase/functions/_shared/plan-catalog';
 
 const monthlyFeatures = [
-  'Estimativas financeiras do mês',
-  'Relatório PDF profissional',
-  'Radar Trabalhista completo',
-  'Fechamento mensal de horas extras',
-  'Simulações de FGTS e rescisão',
+  'Relatórios PDF e exportação Excel',
+  'Banco de horas e fechamento mensal',
+  'Estimativas de salário, FGTS e rescisão',
+  'Radar Trabalhista: prévia de alertas no gratuito; análise completa e estimativas no PRO',
 ];
 
 const annualFeatures = [
-  'Todos os recursos do PRO',
-  '12 meses de acesso',
-  'Economia comparada ao mensal',
-  'Uma única compra para o ano',
+  'Todos os recursos do PRO Mensal',
+  `${formatBRLCents(ANNUAL_SAVINGS_CENTS)} a menos que 12 pagamentos mensais`,
 ];
 
 const PricingSection: React.FC = () => {
@@ -35,12 +38,12 @@ const PricingSection: React.FC = () => {
         >
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Planos PRO</p>
           <h2 className="font-display mt-4 text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">Comece registrando. Ative o PRO para enxergar o quadro completo.</h2>
-          <p className="mt-4 text-sm leading-6 text-muted-foreground">Ao criar sua conta, você testa os recursos PRO por 7 dias. Depois, escolha o período que fizer sentido para sua rotina.</p>
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">Ao criar sua conta, você recebe 7 dias de acesso PRO sem informar cartão. O teste não vira cobrança automaticamente: depois dele, escolha se quer comprar um período.</p>
         </motion.div>
 
         <motion.div className="mb-5 flex flex-col justify-between gap-4 rounded-2xl border border-primary/15 bg-primary/[0.045] p-5 sm:flex-row sm:items-center" initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
-          <div><p className="text-sm font-bold text-primary">Você não precisa pagar para começar</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Crie a conta, configure sua jornada e experimente o fluxo real do aplicativo.</p></div>
-          <span className="shrink-0 rounded-full bg-primary px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-white">7 dias PRO incluídos</span>
+          <div><p className="text-sm font-bold text-primary">Você não precisa pagar para começar</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Crie a conta, configure sua jornada e use todos os recursos PRO por 7 dias. Sem cartão e sem cobrança automática ao fim do teste.</p></div>
+          <span className="shrink-0 rounded-full bg-primary px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-white">7 dias grátis · sem cartão</span>
         </motion.div>
 
         <div className="grid border border-border md:grid-cols-2">
@@ -53,12 +56,12 @@ const PricingSection: React.FC = () => {
           >
             <div className="flex items-center justify-between">
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">PRO Mensal</p>
-              <span className="font-mono text-xs text-muted-foreground">30 DIAS</span>
+              <span className="font-mono text-xs text-muted-foreground">1 MÊS</span>
             </div>
             <div className="mt-7 flex items-end gap-2">
-              <span className="font-mono text-4xl font-semibold tracking-[-0.06em] text-foreground">R$ 9,90</span>
-              <span className="pb-1 text-sm text-muted-foreground">/ mês</span>
+              <span className="font-mono text-4xl font-semibold tracking-[-0.06em] text-foreground">{formatBRLCents(PLAN_CATALOG.pro.amountCents)}</span>
             </div>
+            <p className="mt-1 text-xs text-muted-foreground">Pagamento único · acesso por {getPlanDurationLabel('pro')} · sem renovação automática</p>
             <ul className="my-9 flex-1 space-y-3">
               {monthlyFeatures.map(feature => <li key={feature} className="flex items-start gap-3 text-sm text-foreground"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />{feature}</li>)}
             </ul>
@@ -74,12 +77,12 @@ const PricingSection: React.FC = () => {
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-accent-on-primary">PRO Anual</p>
-              <span className="border border-accent-on-primary/30 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-accent-on-primary">Economia de R$ 28,90</span>
+              <span className="border border-accent-on-primary/30 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-accent-on-primary">Economia de {formatBRLCents(ANNUAL_SAVINGS_CENTS)}</span>
             </div>
             <div className="mt-7 flex items-end gap-2">
-              <span className="font-mono text-4xl font-semibold tracking-[-0.06em]">R$ 89,90</span>
-              <span className="pb-1 text-sm text-white/60">/ ano</span>
+              <span className="font-mono text-4xl font-semibold tracking-[-0.06em]">{formatBRLCents(PLAN_CATALOG.anual.amountCents)}</span>
             </div>
+            <p className="mt-1 text-xs text-white/80">Pagamento único · acesso por {getPlanDurationLabel('anual')} · sem renovação automática</p>
             <ul className="my-9 flex-1 space-y-3">
               {annualFeatures.map(feature => <li key={feature} className="flex items-start gap-3 text-sm"><Check className="mt-0.5 h-4 w-4 shrink-0 text-accent-on-primary" />{feature}</li>)}
             </ul>

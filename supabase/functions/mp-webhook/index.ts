@@ -1,52 +1,14 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { addCalendarMonths } from "../_shared/entitlement-period.ts";
+import { matchesExpectedMercadoPagoPayment } from "../_shared/mercado-pago-payment.ts";
+import { isPaidPlanId, PLAN_CATALOG } from "../_shared/plan-catalog.ts";
+import {
+  matchesMercadoPagoDataId,
+  verifyMercadoPagoSignature,
+} from "../_shared/mercado-pago-signature.ts";
 
 const responseHeaders = { "Content-Type": "text/plain; charset=utf-8" };
-const PLAN_PRICES: Record<string, number> = { pro: 9.90, anual: 89.90 };
-
-function parseXSignature(xSignature: string | null): { ts: string; v1: string } | null {
-  if (!xSignature) return null;
-  const parts = xSignature.split(",").map(p => p.trim());
-  const tsPart = parts.find(p => p.startsWith("ts="));
-  const v1Part = parts.find(p => p.startsWith("v1="));
-  if (!tsPart || !v1Part) return null;
-  const ts = tsPart.split("=")[1];
-  const v1 = v1Part.split("=")[1];
-  if (!ts || !v1) return null;
-  return { ts, v1 };
-}
-
-async function hmacSha256Hex(secret: string, message: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
-  const bytes = new Uint8Array(sig);
-  return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
-}
-
-function safeEqual(a: string, b: string): boolean {
-  const aBytes = new TextEncoder().encode(a.toLowerCase());
-  const bBytes = new TextEncoder().encode(b.toLowerCase());
-  let difference = aBytes.length ^ bBytes.length;
-  const length = Math.max(aBytes.length, bBytes.length);
-  for (let index = 0; index < length; index += 1) {
-    difference |= (aBytes[index] ?? 0) ^ (bBytes[index] ?? 0);
-  }
-  return difference === 0;
-}
-
-function validWebhookTimestamp(value: string): boolean {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return false;
-  const milliseconds = parsed > 10_000_000_000 ? parsed : parsed * 1000;
-  return Math.abs(Date.now() - milliseconds) <= 5 * 60 * 1000;
-}
-
 serve(async (req) => {
   if (req.method !== "POST") return new Response("method not allowed", { status: 405, headers: responseHeaders });
 
@@ -83,24 +45,24 @@ serve(async (req) => {
       return new Response("ok", { headers: responseHeaders });
     }
 
-    const paymentId = data?.id || body["data.id"] || requestUrl.searchParams.get("data.id");
-    if (!paymentId) {
+    const signatureDataIds = requestUrl.searchParams.getAll("data.id");
+    const signatureDataId = signatureDataIds.length === 1 ? signatureDataIds[0].trim() : "";
+    const bodyPaymentId = String(data?.id ?? body["data.id"] ?? "").trim();
+    if (!matchesMercadoPagoDataId(signatureDataId, bodyPaymentId)) {
       return new Response("missing payment id", { status: 400, headers: responseHeaders });
     }
+    const paymentId = bodyPaymentId || signatureDataId;
 
     // Validação de origem (x-signature) — recomendado pelo Mercado Pago
-    // Manifest: id:[data.id_url];request-id:[x-request-id_header];ts:[ts_header];
-    // Como aqui o paymentId vem do body, usamos o mesmo id para compor o manifest.
+    // Mercado Pago assina o data.id da query string; IDs alfanuméricos são normalizados em minúsculas.
     const xRequestId = req.headers.get("x-request-id");
-    const sig = parseXSignature(req.headers.get("x-signature"));
-    if (!xRequestId || !sig || !validWebhookTimestamp(sig.ts)) {
+    if (!xRequestId || !await verifyMercadoPagoSignature(
+      MP_WEBHOOK_SECRET,
+      signatureDataId,
+      xRequestId,
+      req.headers.get("x-signature"),
+    )) {
       return new Response("invalid signature headers", { status: 401, headers: responseHeaders });
-    }
-    const manifest = `id:${paymentId};request-id:${xRequestId};ts:${sig.ts};`;
-    const computed = await hmacSha256Hex(MP_WEBHOOK_SECRET, manifest);
-    if (!safeEqual(computed, sig.v1)) {
-      console.error("Invalid Mercado Pago signature", { paymentId, xRequestId });
-      return new Response("invalid signature", { status: 401, headers: responseHeaders });
     }
 
     // Buscar detalhes do pagamento no MP
@@ -117,94 +79,59 @@ serve(async (req) => {
     // external_reference format: "user_id|plano|timestamp"
     const externalRef = String(payment.external_reference || "");
     const [userId, plano] = externalRef.split("|");
-
-    const expectedPrice = PLAN_PRICES[plano];
-    const amount = Number(payment.transaction_amount);
-    const currency = String(payment.currency_id || "");
-    const collectorId = String(payment.collector_id || "");
-    if (!userId || !expectedPrice || !/^[0-9a-f-]{36}$/i.test(userId)) {
+    if (!isPaidPlanId(plano)) {
       return new Response("invalid reference", { status: 400, headers: responseHeaders });
     }
-    if (Math.abs(amount - expectedPrice) > 0.001 || currency !== "BRL" || collectorId !== MP_COLLECTOR_ID) {
+    const selectedPlan = PLAN_CATALOG[plano];
+    const expectedPrice = selectedPlan.amountCents / 100;
+    const amount = typeof payment.transaction_amount === "number"
+      ? payment.transaction_amount
+      : Number.NaN;
+    const currency = String(payment.currency_id || "");
+    const collectorId = String(payment.collector_id || "");
+    if (!userId || !/^[0-9a-f-]{36}$/i.test(userId)) {
+      return new Response("invalid reference", { status: 400, headers: responseHeaders });
+    }
+    if (!matchesExpectedMercadoPagoPayment(amount, currency, collectorId, expectedPrice, MP_COLLECTOR_ID)) {
       console.error("Payment validation failed", { paymentId, plano, amount, currency, collectorId });
       return new Response("invalid payment", { status: 400, headers: responseHeaders });
     }
 
     const status = String(payment.status || "unknown");
     const approvedAt = typeof payment.date_approved === "string" ? payment.date_approved : null;
-    const { data: existing } = await supabase
-      .from("payment_events")
-      .select("status, entitlement_applied_at")
-      .eq("provider", "mercado_pago")
-      .eq("provider_payment_id", String(paymentId))
-      .maybeSingle();
+    const providerUpdatedAt = typeof payment.date_last_updated === "string" ? payment.date_last_updated : null;
+    const updatedDate = providerUpdatedAt ? new Date(providerUpdatedAt) : null;
+    const approvedDate = approvedAt ? new Date(approvedAt) : null;
+    if (!updatedDate || Number.isNaN(updatedDate.getTime()) ||
+      (status === "approved" && (!approvedDate || Number.isNaN(approvedDate.getTime())))) {
+      console.error("Mercado Pago payment timestamps are invalid", { paymentId });
+      return new Response("invalid payment timestamps", { status: 502, headers: responseHeaders });
+    }
 
-    const { error: ledgerError } = await supabase.from("payment_events").upsert({
-      provider: "mercado_pago",
-      provider_payment_id: String(paymentId),
-      user_id: userId,
-      plan: plano,
-      status,
-      status_detail: String(payment.status_detail || ""),
-      amount,
-      currency,
-      preference_id: String(payment.preference_id || "") || null,
-      collector_id: collectorId,
-      external_reference: externalRef,
-      approved_at: approvedAt,
-      provider_updated_at: typeof payment.date_last_updated === "string" ? payment.date_last_updated : null,
-      received_at: new Date().toISOString(),
-      raw_payload: payment,
-    }, { onConflict: "provider,provider_payment_id" });
-    if (ledgerError) {
-      console.error("Payment ledger error", { paymentId, code: ledgerError.code });
+    const expiresAt = status === "approved"
+      ? addCalendarMonths(approvedDate!, selectedPlan.durationMonths).toISOString()
+      : null;
+    const { data: eventApplied, error: applyError } = await supabase.rpc("apply_mp_payment_event", {
+      p_payment_id: String(paymentId),
+      p_user_id: userId,
+      p_plan: plano,
+      p_status: status,
+      p_status_detail: String(payment.status_detail || ""),
+      p_amount: amount,
+      p_currency: currency,
+      p_preference_id: String(payment.preference_id || "") || null,
+      p_collector_id: collectorId,
+      p_external_reference: externalRef,
+      p_approved_at: approvedDate?.toISOString() ?? null,
+      p_provider_updated_at: updatedDate.toISOString(),
+      p_expires_at: expiresAt,
+      p_raw_payload: payment,
+    });
+    if (applyError) {
+      console.error("Atomic payment event apply failed", { paymentId, code: applyError.code });
       return new Response("db error", { status: 500, headers: responseHeaders });
     }
-
-    if (["refunded", "charged_back", "cancelled"].includes(status)) {
-      const { error: revokeError } = await supabase.from("profiles").update({
-        plano: "free",
-        plano_vencimento: new Date().toISOString(),
-        is_pro: false,
-        subscription_status: status,
-      }).eq("id", userId).eq("plano_payment_id", String(paymentId));
-      if (revokeError) return new Response("db error", { status: 500, headers: responseHeaders });
-      return new Response("ok", { headers: responseHeaders });
-    }
-
-    if (status !== "approved" || (existing?.status === "approved" && existing.entitlement_applied_at)) {
-      return new Response("ok", { headers: responseHeaders });
-    }
-
-    // Calcular vencimento do plano
-    const agora = approvedAt ? new Date(approvedAt) : new Date();
-    let vencimento: Date;
-    if (plano === "anual") {
-      vencimento = new Date(agora.getFullYear() + 1, agora.getMonth(), agora.getDate());
-    } else {
-      vencimento = new Date(agora.getFullYear(), agora.getMonth() + 1, agora.getDate());
-    }
-
-    // Atualizar plano do usuário no Supabase
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        plano,
-        plano_vencimento: vencimento.toISOString(),
-        plano_payment_id: String(paymentId),
-        is_pro: true,
-        subscription_status: "active",
-      } as Record<string, unknown>)
-      .eq("id", userId);
-
-    if (error) {
-      console.error("Supabase update error:", error);
-      return new Response("db error", { status: 500, headers: responseHeaders });
-    }
-
-    await supabase.from("payment_events").update({ entitlement_applied_at: new Date().toISOString() })
-      .eq("provider", "mercado_pago").eq("provider_payment_id", String(paymentId));
-    console.log("Payment entitlement updated", { paymentId, plano, userId });
+    if (eventApplied) console.log("Payment event applied", { paymentId, status, plano, userId });
     return new Response("ok", { headers: responseHeaders });
 
   } catch (err: unknown) {

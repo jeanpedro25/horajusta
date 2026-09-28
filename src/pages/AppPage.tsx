@@ -9,7 +9,7 @@ import {
   getEstadoJornada, formatarDuracaoJornada, formatarHoraLocal,
   getCargaDiaria, isDiaTrabalhoEscala, hojeLocal, getMarcacaoVisual,
   validarProximaMarcacao,
-  type Marcacao,
+  type Marcacao, type TipoJornada,
 } from '@/lib/jornada';
 import { supabase } from '@/integrations/supabase/client';
 import { sincronizarRegistroDia } from '@/lib/registro-dia';
@@ -50,7 +50,7 @@ const AppPage: React.FC = () => {
   const marcacaoEmAndamento = useRef(false);
 
   const today = hojeLocal();
-  const p = profile as any;
+  const p = profile;
   const userName = p?.nome?.split(' ')[0] || '';
 
   const configIncompleta = useMemo(() => {
@@ -102,8 +102,11 @@ const AppPage: React.FC = () => {
     }
   }, [shouldShowPaywall]);
 
+  const tipoJornada: TipoJornada = p?.tipo_jornada === 'escala' || p?.tipo_jornada === 'turno'
+    ? p.tipo_jornada
+    : 'jornada_fixa';
   const cargaDiaria = getCargaDiaria(
-    (p?.tipo_jornada || 'jornada_fixa') as any,
+    tipoJornada,
     p?.escala_tipo || null,
     p?.carga_horaria_diaria ?? 8,
   );
@@ -149,7 +152,7 @@ const AppPage: React.FC = () => {
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [estado, jornada.periodos]);
+  }, [estado, jornada.periodos, jornada.primeiraEntrada]);
 
   const handleMarcacao = async (tipo: typeof proximo.tipo) => {
     if (!user) return;
@@ -181,8 +184,8 @@ const AppPage: React.FC = () => {
       if (tipo === 'saida_final') {
         fetchUnread();
       }
-    } catch (err: any) {
-      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Erro', description: err instanceof Error ? err.message : 'Não foi possível registrar a marcação.', variant: 'destructive' });
     } finally {
       setLoading(false);
       marcacaoEmAndamento.current = false;

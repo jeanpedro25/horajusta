@@ -1,14 +1,20 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
 User-agent: *
 Allow: /
+Disallow: /auth
+Disallow: /login
+Disallow: /entrar
+Disallow: /chefe
+Disallow: /admin
+Disallow: /aceite-termos
+Disallow: /onboarding
+Disallow: /app
+Disallow: /historico
+Disallow: /relatorio
+Disallow: /configuracoes
+Disallow: /privacidade
+Disallow: /planos
+Disallow: /radar
+Disallow: /rescisao
+Disallow: /fgts
+
+Sitemap: https://horajusta.com/sitemap.xml

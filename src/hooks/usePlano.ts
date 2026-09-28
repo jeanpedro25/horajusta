@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { getTrialAccess } from '../../supabase/functions/_shared/trial-access';
 
 export type PlanoStatus = 'pro' | 'anual' | 'trial' | 'expirado';
 
@@ -13,8 +14,6 @@ export interface PlanoInfo {
   podeUsarPro: boolean;
 }
 
-const TRIAL_DIAS = 7;
-
 export function usePlano(): PlanoInfo {
   const { profile, user } = useAuth();
 
@@ -23,7 +22,18 @@ export function usePlano(): PlanoInfo {
     const rawVenc = (profile as { plano_vencimento?: string | null })?.plano_vencimento;
     const vencimento = rawVenc ? new Date(rawVenc) : null;
     const vencimentoValido = vencimento && !Number.isNaN(vencimento.getTime());
-    const vencido = vencimentoValido && vencimento! <= agora;
+    const vencimentoMalformado = Boolean(rawVenc) && !vencimentoValido;
+
+    if (vencimentoMalformado) {
+      return {
+        status: 'expirado',
+        isPro: false,
+        isTrial: false,
+        isExpirado: true,
+        diasRestantesTrial: 0,
+        podeUsarPro: false,
+      };
+    }
 
     const planoId = profile?.plano;
     const ehPlanoPago = planoId === 'pro' || planoId === 'anual';
@@ -32,9 +42,9 @@ export function usePlano(): PlanoInfo {
       String((profile as { subscription_status?: string | null })?.subscription_status || '')
         .toLowerCase() === 'active';
 
-    const planoPagoAtivo = ehPlanoPago && (!vencimentoValido || vencimento! > agora);
+    const planoPagoAtivo = ehPlanoPago && !vencimentoMalformado && (!vencimentoValido || vencimento! > agora);
     const flagsAtivas =
-      (isProFlag || subAtivo) && (!vencimentoValido || vencimento! > agora);
+      (isProFlag || subAtivo) && !vencimentoMalformado && (!vencimentoValido || vencimento! > agora);
 
     if (planoPagoAtivo || flagsAtivas) {
       const st: PlanoStatus =
@@ -49,30 +59,16 @@ export function usePlano(): PlanoInfo {
       };
     }
 
-    if (vencido && ehPlanoPago) {
-      // Plano expirado: não retém se ainda estiver em trial (calculado abaixo)
-    }
-
-    const criadoEmStr =
-      profile?.created_at || user?.created_at || null;
-    const criadoEm = criadoEmStr ? new Date(criadoEmStr) : null;
-
-    if (criadoEm && !Number.isNaN(criadoEm.getTime())) {
-      const diffMs = agora.getTime() - criadoEm.getTime();
-      const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      const diasRestantesTrial = Math.max(0, TRIAL_DIAS - diffDias);
-      const estaNoTrial = diasRestantesTrial > 0;
-
-      if (estaNoTrial) {
-        return {
-          status: 'trial',
-          isPro: false,
-          isTrial: true,
-          isExpirado: false,
-          diasRestantesTrial,
-          podeUsarPro: true,
-        };
-      }
+    const trial = getTrialAccess(profile?.created_at || user?.created_at, agora);
+    if (trial.active) {
+      return {
+        status: 'trial',
+        isPro: false,
+        isTrial: true,
+        isExpirado: false,
+        diasRestantesTrial: trial.daysRemaining,
+        podeUsarPro: true,
+      };
     }
 
     return {

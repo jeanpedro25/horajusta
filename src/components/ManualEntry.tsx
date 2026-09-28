@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -28,19 +28,17 @@ function addMinutesToTime(time: string, minutes: number): string {
 
 const ManualEntry: React.FC<ManualEntryProps> = ({ onAdded }) => {
   const { user, profile } = useAuth();
-  const p = profile as any;
-
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [usaIntervalo, setUsaIntervalo] = useState(true);
 
-  const entradaPadrao = p?.horario_entrada_padrao || '08:00';
-  const saidaPadrao = p?.horario_saida_padrao || '17:00';
-  const intervaloMin = p?.intervalo_almoco ?? 60;
-  const cargaDiaria = p?.carga_horaria_diaria ?? 8;
+  const entradaPadrao = profile?.horario_entrada_padrao || '08:00';
+  const saidaPadrao = profile?.horario_saida_padrao || '17:00';
+  const intervaloMin = profile?.intervalo_almoco ?? 60;
+  const cargaDiaria = profile?.carga_horaria_diaria ?? 8;
 
-  function calcDefaults() {
+  const calcDefaults = useCallback(() => {
     if (intervaloMin > 0) {
       const halfWork = (cargaDiaria * 60) / 2;
       const saida1Default = addMinutesToTime(entradaPadrao, halfWork);
@@ -53,7 +51,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onAdded }) => {
       };
     }
     return { entrada1: entradaPadrao, saida1: saidaPadrao, entrada2: '', saida2: '' };
-  }
+  }, [intervaloMin, cargaDiaria, entradaPadrao, saidaPadrao]);
 
   const defaults = calcDefaults();
   const [entrada1, setEntrada1] = useState(defaults.entrada1);
@@ -70,7 +68,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onAdded }) => {
       setSaida2(d.saida2);
       setUsaIntervalo(intervaloMin > 0);
     }
-  }, [open, p?.horario_entrada_padrao, p?.horario_saida_padrao, p?.intervalo_almoco]);
+  }, [open, calcDefaults, intervaloMin]);
 
   const handleSave = async () => {
     if (!user || !date) {
@@ -134,7 +132,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onAdded }) => {
         marcacoes.push({ tipo: 'saida_final', horario: parseTime(saida1)! });
       }
 
-      await substituirMarcacoesDiaManual(user.id, dateStr, marcacoes, p);
+      await substituirMarcacoesDiaManual(user.id, dateStr, marcacoes, profile);
 
       toast({
         title: '✅ Registro manual salvo!',
@@ -143,8 +141,8 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onAdded }) => {
       onAdded();
       setOpen(false);
       setDate(undefined);
-    } catch (err: any) {
-      toast({ title: 'Erro', description: err.message, variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Erro', description: err instanceof Error ? err.message : 'Não foi possível salvar o registro.', variant: 'destructive' });
     }
     setLoading(false);
   };

@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import {
   buscarMarcacoesDia,
   calcularJornada,
@@ -6,12 +7,15 @@ import {
   type JornadaDia,
   type Marcacao,
   type TipoMarcacao,
+  type TipoJornada,
 } from '@/lib/jornada';
 import {
   calcularEntradaBancoHoras,
   insertBancoHorasEntry,
   type BancoHorasConfig,
 } from '@/lib/banco-horas';
+
+type RegistroDia = Tables<'registros_ponto'>;
 
 interface PerfilResumoDia {
   modo_trabalho?: string | null;
@@ -28,6 +32,8 @@ export interface MarcacaoManualPayload {
   horario: string;
 }
 
+type RegistroDiaPatch = Partial<TablesUpdate<'registros_ponto'>>;
+
 const entradaPlaceholder = (data: string) => new Date(`${data}T00:00:00`).toISOString();
 
 async function buscarRegistroDia(userId: string, data: string) {
@@ -41,19 +47,19 @@ async function buscarRegistroDia(userId: string, data: string) {
     .limit(1);
 
   if (error) throw error;
-  return (rows as any[])?.[0] ?? null;
+  return rows?.[0] ?? null;
 }
 
 async function salvarRegistroDia(
   userId: string,
   data: string,
-  patch: Record<string, any>,
-  existing?: any | null,
+  patch: RegistroDiaPatch,
+  existing?: RegistroDia | null,
 ) {
   if (existing) {
     const { data: updated, error } = await supabase
       .from('registros_ponto')
-      .update(patch as any)
+      .update(patch)
       .eq('id', existing.id)
       .eq('user_id', userId)
       .select('*')
@@ -66,13 +72,13 @@ async function salvarRegistroDia(
   const payload = {
     user_id: userId,
     data,
-    entrada: typeof patch.entrada === 'string' && patch.entrada ? patch.entrada : entradaPlaceholder(data),
+    entrada: patch.entrada || entradaPlaceholder(data),
     ...patch,
   };
 
   const { data: created, error } = await supabase
     .from('registros_ponto')
-    .insert(payload as any)
+    .insert(payload as TablesInsert<'registros_ponto'>)
     .select('*')
     .single();
 
@@ -83,7 +89,7 @@ async function salvarRegistroDia(
 export async function garantirRegistroDia(
   userId: string,
   data: string,
-  patch: Record<string, any> = {},
+  patch: RegistroDiaPatch = {},
 ) {
   const existing = await buscarRegistroDia(userId, data);
   return salvarRegistroDia(userId, data, patch, existing);
@@ -112,7 +118,7 @@ async function recalcularBancoHorasDia(
   if (!jornadaEncerrada || jornada.totalTrabalhado <= 0) return;
 
   const cargaDiaria = getCargaDiaria(
-    (perfil.tipo_jornada || 'jornada_fixa') as any,
+    normalizarTipoJornada(perfil.tipo_jornada),
     perfil.escala_tipo || null,
     Number(perfil.carga_horaria_diaria ?? 8),
   );
@@ -132,6 +138,10 @@ async function recalcularBancoHorasDia(
 
   const { error: insertError } = await insertBancoHorasEntry(entry);
   if (insertError) throw insertError;
+}
+
+function normalizarTipoJornada(tipo: string | null | undefined): TipoJornada {
+  return tipo === 'turno' || tipo === 'escala' ? tipo : 'jornada_fixa';
 }
 
 export async function sincronizarRegistroDia(
@@ -163,7 +173,7 @@ export async function sincronizarRegistroDia(
   }
 
   const jornada = calcularJornada(marcacoes);
-  const patch: Record<string, any> = {
+  const patch: RegistroDiaPatch = {
     entrada: marcacoes[0]?.horario || existing?.entrada || entradaPlaceholder(data),
     saida: marcacoes.filter((m) => m.tipo === 'saida_final').at(-1)?.horario || null,
     intervalo_minutos: jornada.totalIntervalo,
@@ -191,7 +201,7 @@ export async function substituirMarcacoesDiaManual(
 
   const { error: deleteError } = await supabase
     .from('marcacoes_ponto')
-    .update({ deleted_at: now } as any)
+    .update({ deleted_at: now })
     .eq('user_id', userId)
     .eq('data', data)
     .is('deleted_at', null);
@@ -205,13 +215,13 @@ export async function substituirMarcacoesDiaManual(
       data,
       tipo: marcacao.tipo,
       horario: marcacao.horario,
-      origem: 'manual',
+      origem: 'manual' as const,
     }));
 
   if (rows.length > 0) {
     const { error: insertError } = await supabase
       .from('marcacoes_ponto')
-      .insert(rows as any);
+      .insert(rows);
 
     if (insertError) throw insertError;
   }

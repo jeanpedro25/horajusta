@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import HoraJustaLogo from '@/components/HoraJustaLogo';
+import { LEGAL_DOCUMENT_VERSION } from '@/lib/legal-versions';
 
 const AceiteTermosPage: React.FC = () => {
   const { user, refreshProfile } = useAuth();
@@ -16,11 +17,10 @@ const AceiteTermosPage: React.FC = () => {
   const handleContinuar = async () => {
     if (!user || !aceito) return;
     setLoading(true);
-    const { error } = await supabase
-      .from('profiles')
-      .upsert({ id: user.id, aceite_termos: true } as never, { onConflict: 'id' });
+    const { error } = await supabase.rpc('record_legal_acceptance');
     if (error) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+      console.error('Legal acceptance could not be recorded', { code: error.code });
+      toast({ title: 'Não foi possível salvar', description: 'Tente novamente em instantes. Se o problema continuar, fale com o suporte.', variant: 'destructive' });
     } else {
       await refreshProfile();
       navigate('/onboarding');
@@ -37,6 +37,7 @@ const AceiteTermosPage: React.FC = () => {
           <p className="text-sm text-muted-foreground mt-1">
             Para usar o Hora Justa, é necessário aceitar nossos termos.
           </p>
+          <p className="text-xs text-muted-foreground">Versão dos documentos: {LEGAL_DOCUMENT_VERSION}</p>
         </div>
 
         <div className="bg-card rounded-xl border border-border p-5 space-y-4">
@@ -47,24 +48,14 @@ const AceiteTermosPage: React.FC = () => {
               onCheckedChange={(v) => setAceito(v === true)}
               className="mt-0.5"
             />
-            <label htmlFor="aceite" className="text-sm leading-relaxed cursor-pointer">
-              Li e concordo com os{' '}
-              <button
-                type="button"
-                onClick={() => navigate('/termos')}
-                className="text-accent underline font-medium"
-              >
-                Termos de Uso
-              </button>{' '}
-              e a{' '}
-              <button
-                type="button"
-                onClick={() => navigate('/privacidade-publica')}
-                className="text-accent underline font-medium"
-              >
-                Política de Privacidade
-              </button>
-            </label>
+            <div className="text-sm leading-relaxed">
+              <label htmlFor="aceite" className="cursor-pointer">Li e concordo com os documentos:</label>
+              <div>
+                <Link to="/termos" className="text-accent underline font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">Termos de Uso</Link>
+                <span> e </span>
+                <Link to="/privacidade-publica" className="text-accent underline font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">Política de Privacidade</Link>
+              </div>
+            </div>
           </div>
 
           <Button
