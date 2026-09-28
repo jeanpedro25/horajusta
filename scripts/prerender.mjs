@@ -78,6 +78,12 @@ const server = createServer(async (request, response) => {
   } catch { response.writeHead(404).end(); }
 });
 
+if (process.env.VERCEL === '1') {
+  console.log('Skipping Chromium prerender on Vercel; generated public HTML is validated in CI/local builds.');
+  await new Promise(resolve => server.close(resolve));
+  process.exit(0);
+}
+
 await new Promise((resolve, reject) => server.once('error', reject).listen(0, '127.0.0.1', resolve));
 const address = server.address();
 if (!address || typeof address === 'string') throw new Error('Could not start local static build server.');
